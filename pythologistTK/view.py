@@ -70,9 +70,9 @@ class Viewer:
         # have to create frames to put buttons inside and make it pretty
         # self.zoompanel = LabelFrame(self.master, text="Zoom panel", padx=20, pady=20)
         self.buttonzoom = Button(self.canvas, text="Zoom", command=self.zoom,
-                                 relief=FLAT)
+                                 relief=FLAT, highlightbackground="blue")
         self.buttondezoom = Button(self.canvas, text="Dezoom", command=self.dezoom,
-                                   relief=FLAT)
+                                   relief=FLAT, highlightbackground="blue")
 
         # self.zoombuttonwindow = self.canvas.create_window(10, 10, anchor='nw', window=self.buttonzoom)
 
@@ -137,13 +137,11 @@ class Viewer:
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width, -self.canvas.height,
                                  anchor=NW, image=self.photoimage, tags="image")
-        self.buttonzoomwindow = self.canvas.create_window(self.canvas.width -
-                                                          100,
+        self.buttonzoomwindow = self.canvas.create_window(100,
                                                           50, width=100,
                                                           height=25,
                                                           window=self.buttonzoom)
-        self.buttondezoomwindow = self.canvas.create_window(self.canvas.width -
-                                                            100,
+        self.buttondezoomwindow = self.canvas.create_window(100,
                                                             100, width=100,
                                                             height=25,
                                                             window=self.buttondezoom)
