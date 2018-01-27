@@ -7,5 +7,5 @@ setup(name='pythologistTK',
       author_email='arnaud.abreu.p@gmail.com',
       packages=find_packages(),
       zip_safe=False,
-      install_requires=['numpy'],
+      install_requires=['numpy', 'Pillow'],
       include_package_data=True)
