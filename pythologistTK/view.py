@@ -4,6 +4,7 @@ Viewer classes
 Original author: Arnaud Abreu
 """
 from tkinter import *
+from tkinter import ttk
 from tkinter.filedialog import *
 from PIL import Image, ImageTk
 from openslide import OpenSlide
@@ -12,7 +13,7 @@ import numpy
 from scipy.misc import imsave
 
 
-class ResizeableCanvas(Canvas):
+class ResizableCanvas(Canvas):
     """
     A class extending the tkinter Canvas class and enabling resizing
     """
@@ -32,11 +33,11 @@ class ResizeableCanvas(Canvas):
         self.config(width=self.width, height=self.height)
 
 
-class Viewer:
+class ViewerTab:
     """
     A simple Viewer class
     """
-    def __init__(self, master, dim=800):
+    def __init__(self, master, win, dim=800):
 
         self.tool = "slide"
 
@@ -44,10 +45,10 @@ class Viewer:
         self.yref = 0
 
         self.master = master
-        self.master.wm_title("Pythologist")
+        self.win = win
 
         # Menu bar
-        self.menubar = Menu(self.master)
+        self.menubar = Menu(self.win)
 
         # File Menu
         self.file_menu = Menu(self.menubar)
@@ -56,10 +57,20 @@ class Viewer:
         self.menubar.add_cascade(label="File", menu=self.file_menu)
 
         # link the menu to the app
-        self.master.config(menu=self.menubar)
+        self.win.config(menu=self.menubar)
+
+        # creation of a frame on the left of the Canvas
+        # just to put some buttons and informations
+        self.sideFrame = ttk.Frame(self.master, width=100)
+        self.sideFrame.pack(side=LEFT, fill=BOTH)
+
+        self.zoomPanel = ttk.LabelFrame(self.sideFrame, width=90,
+                                        text="Zoom Panel")
+        self.zoomPanel.pack(side=TOP)
 
         # image container
-        self.canvas = ResizeableCanvas(self.master, width=dim, height=dim, highlightthickness=0)
+        self.canvas = ResizableCanvas(self.master, width=dim,
+                                      height=dim, highlightthickness=0)
         self.canvas.pack(fill=BOTH, expand=YES)
 
         # canvas bind events
@@ -67,19 +78,13 @@ class Viewer:
         self.canvas.bind("<B1-Motion>", self.move)
         self.canvas.bind("<ButtonRelease-1>", self.nomove)
 
-        # have to create frames to put buttons inside and make it pretty
-        # self.zoompanel = LabelFrame(self.master, text="Zoom panel", padx=20, pady=20)
-        self.buttonzoom = Button(self.canvas, text="Zoom", command=self.zoom,
-                                 relief=FLAT, highlightbackground="blue")
-        self.buttondezoom = Button(self.canvas, text="Dezoom", command=self.dezoom,
-                                   relief=FLAT, highlightbackground="blue")
+        self.buttonzoom = ttk.Button(self.zoomPanel, text="Zoom",
+                                     command=self.zoom)
+        self.buttondezoom = ttk.Button(self.zoomPanel, text="Dezoom",
+                                       command=self.dezoom)
 
-        # self.zoombuttonwindow = self.canvas.create_window(10, 10, anchor='nw', window=self.buttonzoom)
-
-        # packing everything
-        # self.zoombuttonwindow.pack()
-        # self.buttonzoom.pack()
-        # self.buttondezoom.pack()
+        self.buttonzoom.pack()
+        self.buttondezoom.pack()
 
     def open_image_file(self):
         """
@@ -92,7 +97,6 @@ class Viewer:
         # get path of the slide
         filepath = askopenfilename(title="open image",
                                    filetypes=[('mrxs files', '.mrxs'),
-                                              ('tiff files', '.tif'),
                                               ('all files', '.*')])
 
         # define slide object
@@ -137,14 +141,6 @@ class Viewer:
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width, -self.canvas.height,
                                  anchor=NW, image=self.photoimage, tags="image")
-        self.buttonzoomwindow = self.canvas.create_window(100,
-                                                          50, width=100,
-                                                          height=25,
-                                                          window=self.buttonzoom)
-        self.buttondezoomwindow = self.canvas.create_window(100,
-                                                            100, width=100,
-                                                            height=25,
-                                                            window=self.buttondezoom)
         print("open image file")
 
     def abscenter(self):
