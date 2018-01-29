@@ -61,8 +61,11 @@ class ViewerTab:
         self.zoomPanel.pack(side=TOP)
 
         # image container
-        self.canvas = ResizableCanvas(self.master, width=dim,
-                                      height=dim, highlightthickness=0)
+        self.canvas = ResizableCanvas(self.master,
+                                      width=dim,
+                                      height=dim,
+                                      highlightthickness=0,
+                                      bg="black")
         self.canvas.pack(fill=BOTH, expand=YES)
 
         # canvas bind events

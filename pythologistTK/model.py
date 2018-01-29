@@ -51,7 +51,7 @@ class Model:
 
 
 ################################################################################
-        # function for data processing (image and annotation)
+        # functions for image streaming
 ################################################################################
 
     def open_files(self):
@@ -68,8 +68,12 @@ class Model:
         # create the annotation object
         self.annotations = None
         if os.path.exists(self.annotationfilepath):
+            self.view.annotapp.isannotation = True
             with open(self.annotationfilepath, "rb") as f:
                 self.annotations = pickle.load(f)
+            self.view.annotapp.initAnnot()
+        else:
+            self.annotations = dict()
         self.view.viewapp.initView()
 
     def initImage(self):
@@ -162,3 +166,19 @@ class Model:
         # recompute image
         image = self.zoomImage(absx, absy)
         return image
+
+
+################################################################################
+        # functions for annotations processing
+################################################################################
+    def annotationNames(self):
+        namesNcolors = []
+        for key in self.annotations.keys():
+            namesNcolors.append({"name": key, "color": self.annotations[key]["color"]})
+        return namesNcolors
+
+    def detailedAnnotation(self, name):
+        detail = []
+        for key in self.annotations[name]:
+            detail.append(str(key) + " : " + str(self.annotations[name][key]))
+        return detail
