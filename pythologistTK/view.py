@@ -37,16 +37,19 @@ class ViewerTab:
     """
     A simple Viewer class
     """
-    def __init__(self, master, win, dim=800):
+    def __init__(self, master, model, dim=800):
 
-        self.slide = None
+        self.master = master
+        self.model = model
+        self.image_x_abs = 0.
+        self.image_y_abs = 0.
+        self.isSlideOn = False
+        self.image = None
+        self.photoimage = None
         self.tool = "slide"
 
         self.xref = 0
         self.yref = 0
-
-        self.master = master
-        self.win = win
 
         # creation of a frame on the left of the Canvas
         # just to put some buttons and informations
@@ -75,7 +78,8 @@ class ViewerTab:
         self.buttonzoom.pack()
         self.buttondezoom.pack()
 
-    def open_image_file(self, filepath):
+    def initView(self):
+        # done
         """
         A function that create the image in the canvas
         and initialize several variables
@@ -83,80 +87,32 @@ class ViewerTab:
         # if there is an image in the canvas, delete it
         self.canvas.delete('all')
 
-        # define slide object
-        self.slide = OpenSlide(filepath)
-
-        # define current level of observation to lowest level (highest on pyramid)
-        self.level = self.slide.level_count - 1
-        print("nombre de niveaux dans la pyramide : ", self.level)
-
-        # create an image low resolution to find ROI in current level
-        im = numpy.asarray(self.slide.read_region(location=(0, 0),
-                                                  level=self.level,
-                                                  size=self.slide.level_dimensions[self.level]))
-
-        # find ROI in current level
-        [i, j] = numpy.where(im[:, :, 0] > 0)
-
-        # center of ROI in current level
-        ci = round(numpy.mean(i))
-        cj = round(numpy.mean(j))
-        ci = int(ci)
-        cj = int(cj)
-
-        # image position in current level
-        ci -= int(self.canvas.height + (self.canvas.height / 2))
-        cj -= int(self.canvas.width + (self.canvas.width / 2))
-
-        # image absolute position in slide
-        self.image_y_abs = ci * numpy.power(2, self.level)
-        self.image_x_abs = cj * numpy.power(2, self.level)
-
         # image creation
-        self.image = self.slide.read_region(location=(self.image_x_abs,
-                                                      self.image_y_abs),
-                                            level=self.level,
-                                            size=(3 * self.canvas.width,
-                                                  3 * self.canvas.height))
-        self.image.putalpha(255)
+        self.image = self.model.initImage()
+        self.redraw()
+        self.isSlideOn = True
 
-        # create canvas image from PIL image
-        self.photoimage = ImageTk.PhotoImage(self.image)
-        self.canvas.delete("image")
-        self.canvas.create_image(-self.canvas.width, -self.canvas.height,
-                                 anchor=NW, image=self.photoimage, tags="image")
-        print("open image file")
-
-    def abscenter(self):
-        abscenterx = self.image_x_abs + int(self.canvas.width + (self.canvas.width / 2)) * numpy.power(2, self.level)
-        abscentery = self.image_y_abs + int(self.canvas.height + (self.canvas.height / 2)) * numpy.power(2, self.level)
-        return abscenterx, abscentery
-
-    def redraw(self, x, y):
-        self.image_x_abs = x - int(self.canvas.width + (self.canvas.width / 2)) * numpy.power(2, self.level)
-        self.image_y_abs = y - int(self.canvas.height + (self.canvas.height / 2)) * numpy.power(2, self.level)
-
-        # get image position in canvas at new level
-        self.image = self.slide.read_region(location=(self.image_x_abs,
-                                                      self.image_y_abs),
-                                            level=self.level,
-                                            size=(3 * self.canvas.width,
-                                                  3 * self.canvas.height))
+    def redraw(self):
         self.image.putalpha(255)
         self.photoimage = ImageTk.PhotoImage(self.image)
         self.canvas.delete("image")
-        self.canvas.create_image(-self.canvas.width, -self.canvas.height,
-                                 anchor=NW, image=self.photoimage, tags="image")
+        self.canvas.create_image(-self.canvas.width,
+                                 -self.canvas.height,
+                                 anchor=NW,
+                                 image=self.photoimage,
+                                 tags="image")
         self.canvas.pack()
 
     def dirbutton(self, event):
-        if self.slide is not None:
+        # done
+        if self.isSlideOn:
             if self.tool == "slide":
                 self.xref = event.x
                 self.yref = event.y
 
     def move(self, event):
-        if self.slide is not None:
+        # done
+        if self.isSlideOn:
             if self.tool == "slide":
                 dpx = (event.x - self.xref)
                 dpy = (event.y - self.yref)
@@ -166,39 +122,21 @@ class ViewerTab:
                                          image=self.photoimage, tags="image")
 
     def nomove(self, event):
-        if self.slide is not None:
+        # done
+        if self.isSlideOn:
             if self.tool == "slide":
-                self.image_x_abs -= (event.x - self.xref) * numpy.power(2, self.level)
-                self.image_y_abs -= (event.y - self.yref) * numpy.power(2, self.level)
-                # have to redefine image to store "du rab" for incoming translations
-                self.image = self.slide.read_region(location=(self.image_x_abs,
-                                                              self.image_y_abs),
-                                                    level=self.level,
-                                                    size=(3 * self.canvas.width,
-                                                    3 * self.canvas.height))
-                self.image.putalpha(255)
-                self.photoimage = ImageTk.PhotoImage(self.image)
-                self.canvas.delete("image")
-                self.canvas.create_image(-self.canvas.width, -self.canvas.height,
-                                         anchor=NW, image=self.photoimage, tags="image")
-                self.canvas.pack()
+                self.image = self.model.translateImage(self.xref,
+                                                       self.yref,
+                                                       event)
+                self.redraw()
 
     def zoom(self):
-        if self.slide is not None:
-            # get absolute value of image center
-            acx, acy = self.abscenter()
-
+        if self.isSlideOn:
             # reset level
-            if self.level > 0:
-                self.level -= 1
-            self.redraw(acx, acy)
+            self.image = self.model.zoomIn()
+            self.redraw()
 
     def dezoom(self):
-        if self.slide is not None:
-            # get absolute value of image center
-            acx, acy = self.abscenter()
-
-            # reset level
-            if self.level < self.slide.level_count - 1:
-                self.level += 1
-            self.redraw(acx, acy)
+        if self.isSlideOn:
+            self.image = self.model.zoomOut()
+            self.redraw()

@@ -16,9 +16,10 @@ import glob
 
 
 class AnnotationTab:
-    def __init__(self, master):
+    def __init__(self, master, model):
 
         self.master = master
+        self.model = model
 
         # individual annotation pannel
         self.annotationPannel = ttk.Frame(self.master, width=200)
