@@ -8,6 +8,7 @@ from PIL import Image, ImageTk
 from openslide import OpenSlide
 import pickle
 import numpy
+from skimage.draw import polygon, polygon_perimeter
 
 
 class Model:
@@ -182,3 +183,31 @@ class Model:
         for key in self.annotations[name]:
             detail.append(str(key) + " : " + str(self.annotations[name][key]))
         return detail
+
+    def imageAnnotation(self, name):
+        coords = self.annotations[name]["coords"]
+        sizex = self.view.annotapp.patchView.width
+        sizey = self.view.annotapp.patchView.height
+        i = numpy.array([c[1] for c in coords])
+        j = numpy.array([c[0] for c in coords])
+        imin = i.min()
+        jmin = j.min()
+        imax = i.max()
+        jmax = j.max()
+        imiddle = int(float(imax - imin) / 2)
+        jmiddle = int(float(jmax - jmin) / 2)
+        di = imax - imin
+        dj = jmax - jmin
+        k = 2
+        while (float(di) / numpy.power(2, k)) > sizey and (float(dj) / numpy.power(2, k)) > sizex:
+            k += 1
+        absoriginx = jmin + int(float(dj) / 2) - (int(float(sizex) / 2) * (2 ** k))
+        absoriginy = imin + int(float(di) / 2) - (int(float(sizey) / 2) * (2 ** k))
+        image = self.slide.read_region(location=(absoriginx, absoriginy),
+                                       level=k,
+                                       size=(sizex, sizey))
+        bbx = (int(float(sizex) / 2 - ((float(dj) / 2) / (2 ** k))),
+               int(float(sizey) / 2 - ((float(di) / 2) / (2 ** k))),
+               int(float(sizex) / 2 - ((float(dj) / 2) / (2 ** k)) + (dj / (2 ** k))),
+               int(float(sizey) / 2 - ((float(di) / 2) / (2 ** k)) + (di / (2 ** k))))
+        return bbx, image

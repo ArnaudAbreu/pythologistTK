@@ -22,6 +22,8 @@ class AnnotationTab:
         self.master = master
         self.model = model
         self.isannotation = False
+        self.image = None
+        self.photoimage = None
 
         # annotation pannel
         self.annotationPannel = ttk.Frame(self.master, width=200)
@@ -75,8 +77,20 @@ class AnnotationTab:
     def checkAnnotation(self, evt):
         w = evt.widget
         index = int(w.curselection()[0])
+        color = self.annotationList.itemcget(index, "foreground")
         value = w.get(index)
         detail = self.model.detailedAnnotation(value)
         self.propertyList.delete(0, END)
         for d in detail:
             self.propertyList.insert(END, d)
+        bbx, self.image = self.model.imageAnnotation(value)
+        self.image.putalpha(255)
+        self.photoimage = ImageTk.PhotoImage(self.image)
+        self.patchView.delete("all")
+        self.patchView.create_image(0,
+                                    0,
+                                    anchor=NW,
+                                    image=self.photoimage,
+                                    tags="image")
+        self.patchView.create_rectangle(bbx[0], bbx[1], bbx[2], bbx[3], outline=color)
+        self.patchView.pack()
