@@ -18,7 +18,8 @@ def processBrown2HevClassif(annotations, slide, progressbar):
         from keras.models import load_model
         total = len(annotations.keys())
         print("total number of annotations : ", total)
-        CNN3 = load_model("/Users/administrateur/Scripts/HEV_industrial/hev_cnn3.hdf5")
+        cnnpath = os.path.join(os.path.dirname(__file__), 'hev_cnn3.hdf5')
+        CNN3 = load_model(cnnpath)
         # progressbar.configure(maximum=total)
         for key in tqdm(annotations.keys()):
             if "tumor" not in key:
