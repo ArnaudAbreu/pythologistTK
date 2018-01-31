@@ -23,9 +23,5 @@ class TabApplication:
         self.page2 = ttk.Frame(self.nb)
         self.nb.add(self.page2, text='Annotation')
 
-        # Adds tab 3 of the notebook
-        self.page3 = ttk.Frame(self.nb)
-        self.nb.add(self.page3, text='Stats')
-
         self.annotapp = annotation.AnnotationTab(self.page2, self.model)
         self.viewapp = view.ViewerTab(self.page1, self.model)

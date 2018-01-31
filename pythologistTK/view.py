@@ -57,7 +57,7 @@ class ViewerTab:
         self.sideFrame.pack(side=LEFT, fill=BOTH)
 
         self.zoomPanel = ttk.LabelFrame(self.sideFrame, width=90,
-                                        text="Zoom Panel")
+                                        text="Control Panel")
         self.zoomPanel.pack(side=TOP)
 
         # image container

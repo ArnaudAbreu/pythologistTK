@@ -3,12 +3,14 @@ from tkinter import *
 from tkinter import ttk
 from ttkthemes import ThemedStyle
 from tkinter.filedialog import *
-from pythologistTK import application
+from pythologistTK import application, processes
 from PIL import Image, ImageTk
 from openslide import OpenSlide
 import pickle
 import numpy
 from skimage.draw import polygon, polygon_perimeter
+from inspect import getmembers, isfunction
+from multiprocessing import Process
 
 
 class Model:
@@ -16,6 +18,8 @@ class Model:
 
         # master is the tkinter main application
         self.master = master
+        self.slidefilepath = None
+        self.annotationfilepath = None
 
 
 ################################################################################
@@ -59,23 +63,33 @@ class Model:
         # get path of the slide
         self.slidefilepath = askopenfilename(title="open image",
                                              filetypes=[('mrxs files', '.mrxs'),
+                                                        ('aperio files', '.svs'),
+                                                        ('hamamatsu files', '.ndpi'),
+                                                        ('hamamatsu2 files', '.vms'),
+                                                        ('hamamatsu3 files', '.vmu'),
+                                                        ('leica files', '.scn'),
+                                                        ('tiff files', '.tiff'),
+                                                        ('sakura files', '.svslide'),
+                                                        ('ventana files', '.bif'),
+                                                        ('tif files', '.tif'),
                                                         ('all files', '.*')])
-
-        # create the slide object
-        self.slide = OpenSlide(self.slidefilepath)
-        print("open file : ", self.slidefilepath)
-        # get path of the annotation file
-        self.annotationfilepath = self.slidefilepath[0:-len(".mrxs")] + ".annot"
-        # create the annotation object
-        self.annotations = None
-        if os.path.exists(self.annotationfilepath):
-            self.view.annotapp.isannotation = True
-            with open(self.annotationfilepath, "rb") as f:
-                self.annotations = pickle.load(f)
+        # print(type(self.slidefilepath))
+        if self.slidefilepath:
+            # create the slide object
+            self.slide = OpenSlide(self.slidefilepath)
+            print("open file : ", self.slidefilepath)
+            # get path of the annotation file
+            self.annotationfilepath = self.slidefilepath.split(".")[0] + ".annot"
+            # create the annotation object
+            self.annotations = None
+            if os.path.exists(self.annotationfilepath):
+                self.view.annotapp.isannotation = True
+                with open(self.annotationfilepath, "rb") as f:
+                    self.annotations = pickle.load(f)
+            else:
+                self.annotations = dict()
+            self.view.viewapp.initView()
             self.view.annotapp.initAnnot()
-        else:
-            self.annotations = dict()
-        self.view.viewapp.initView()
 
     def initImage(self):
         # define current level of observation to lowest level (highest on pyramid)
@@ -148,6 +162,15 @@ class Model:
         abscentery = self.image_y_abs + int(canvasheight + (canvasheight / 2)) * numpy.power(2, self.level)
         return abscenterx, abscentery
 
+    def canvasBbox(self):
+        canvasheight = self.view.viewapp.canvas.height
+        canvaswidth = self.view.viewapp.canvas.width
+        absHLcornerx = self.image_x_abs + canvaswidth * numpy.power(2, self.level)
+        absHLcornery = self.image_y_abs + canvasheight * numpy.power(2, self.level)
+        absLRcornerx = self.image_x_abs + canvaswidth * numpy.power(2, self.level) * 2
+        absLRcornery = self.image_y_abs + canvasheight * numpy.power(2, self.level) * 2
+        return absHLcornerx, absHLcornery, absLRcornerx, absLRcornery
+
     def zoomIn(self):
         # get absolute center
         absx, absy = self.abscenter()
@@ -177,6 +200,23 @@ class Model:
         for key in self.annotations.keys():
             namesNcolors.append({"name": key, "color": self.annotations[key]["color"]})
         return namesNcolors
+
+    def annotationNamesByPropertyVal(self, val):
+        namesNcolors = []
+        for key in self.annotations.keys():
+            if val in self.annotations[key].values():
+                namesNcolors.append({"name": key, "color": self.annotations[key]["color"]})
+        return namesNcolors
+
+    def annotationUniqueProperties(self):
+        properties = []
+        for key in self.annotations.keys():
+            annotation = self.annotations[key]
+            for k in annotation.keys():
+                if str(k) == "class" or str(k) == "color":
+                    if annotation[k] not in properties:
+                        properties.append(annotation[k])
+        return properties
 
     def detailedAnnotation(self, name):
         detail = []
@@ -211,3 +251,24 @@ class Model:
                int(float(sizex) / 2 - ((float(dj) / 2) / (2 ** k)) + (dj / (2 ** k))),
                int(float(sizey) / 2 - ((float(di) / 2) / (2 ** k)) + (di / (2 ** k))))
         return bbx, image
+
+    def findProcesses(self):
+        functions_list = [o[0] for o in getmembers(processes) if isfunction(o[1]) and "process" in o[0]]
+        return functions_list
+
+    def runProcess(self, processname, progressbar):
+        functions_list = [o for o in getmembers(processes) if isfunction(o[1]) and "process" in o[0]]
+        process = None
+        for f in functions_list:
+            if f[0] == processname:
+                process = f[1]
+                break
+        if process is not None:
+            process(self.annotations, self.slide, progressbar)
+        if bool(self.annotations):
+            self.view.annotapp.isannotation = True
+
+    def saveAnnotations(self):
+        if self.annotationfilepath is not None:
+            with open(self.annotationfilepath, "wb") as f:
+                pickle.dump(self.annotations, f)
