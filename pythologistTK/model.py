@@ -157,8 +157,8 @@ class Model:
         cj -= int(canvaswidth + (canvaswidth / 2))
 
         # image absolute position in slide
-        self.image_y_abs = ci * self.zoomfactors[level]
-        self.image_x_abs = cj * self.zoomfactors[level]
+        self.image_y_abs = ci * self.zoomfactors[self.level]
+        self.image_x_abs = cj * self.zoomfactors[self.level]
 
         # image creation
         image = self.slide.read_region(location=(self.image_x_abs,
@@ -172,8 +172,8 @@ class Model:
     def translateImage(self, xref, yref, event):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        self.image_x_abs -= (event.x - xref) * self.zoomfactors[level]
-        self.image_y_abs -= (event.y - yref) * self.zoomfactors[level]
+        self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
+        self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
         # have to redefine image to store "du rab" for incoming translations
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
@@ -185,8 +185,8 @@ class Model:
     def zoomImage(self, x, y):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        self.image_x_abs = x - int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[level]
-        self.image_y_abs = y - int(canvasheight + (canvasheight / 2)) * self.zoomfactors[level]
+        self.image_x_abs = x - int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[self.level]
+        self.image_y_abs = y - int(canvasheight + (canvasheight / 2)) * self.zoomfactors[self.level]
 
         # get image position in canvas at new level
         image = self.slide.read_region(location=(self.image_x_abs,
@@ -200,17 +200,17 @@ class Model:
     def abscenter(self):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        abscenterx = self.image_x_abs + int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[level]
-        abscentery = self.image_y_abs + int(canvasheight + (canvasheight / 2)) * self.zoomfactors[level]
+        abscenterx = self.image_x_abs + int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[self.level]
+        abscentery = self.image_y_abs + int(canvasheight + (canvasheight / 2)) * self.zoomfactors[self.level]
         return abscenterx, abscentery
 
     def canvasBbox(self):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        absHLcornerx = self.image_x_abs + canvaswidth * self.zoomfactors[level]
-        absHLcornery = self.image_y_abs + canvasheight * self.zoomfactors[level]
-        absLRcornerx = self.image_x_abs + canvaswidth * self.zoomfactors[level] * 2
-        absLRcornery = self.image_y_abs + canvasheight * self.zoomfactors[level] * 2
+        absHLcornerx = self.image_x_abs + canvaswidth * self.zoomfactors[self.level]
+        absHLcornery = self.image_y_abs + canvasheight * self.zoomfactors[self.level]
+        absLRcornerx = self.image_x_abs + canvaswidth * self.zoomfactors[self.level] * 2
+        absLRcornery = self.image_y_abs + canvasheight * self.zoomfactors[self.level] * 2
         return absHLcornerx, absHLcornery, absLRcornerx, absLRcornery
 
     def zoomIn(self):
@@ -405,8 +405,8 @@ class ModelV2(Model):
     def translateImage(self, xref, yref, event):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        self.image_x_abs -= (event.x - xref) * self.zoomfactors[level]
-        self.image_y_abs -= (event.y - yref) * self.zoomfactors[level]
+        self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
+        self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
         # have to redefine image to store "du rab" for incoming translations
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
@@ -422,8 +422,8 @@ class ModelV2(Model):
     def zoomImage(self, x, y):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        self.image_x_abs = x - int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[level]
-        self.image_y_abs = y - int(canvasheight + (canvasheight / 2)) * self.zoomfactors[level]
+        self.image_x_abs = x - int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[self.level]
+        self.image_y_abs = y - int(canvasheight + (canvasheight / 2)) * self.zoomfactors[self.level]
 
         # get image position in canvas at new level
         image = self.slide.read_region(location=(self.image_x_abs,
@@ -449,8 +449,8 @@ class ModelV2(Model):
         """
         if isinstance(self.annotations, dict):
             # first define the absolute size of the bounding box
-            absheight = (3 * self.view.viewapp.canvas.height) * self.zoomfactors[level]
-            abswidth = (3 * self.view.viewapp.canvas.width) * self.zoomfactors[level]
+            absheight = (3 * self.view.viewapp.canvas.height) * self.zoomfactors[self.level]
+            abswidth = (3 * self.view.viewapp.canvas.width) * self.zoomfactors[self.level]
 
             # then find all annotations that belongs to the box
             # assertion: I have annotations at level 0...
@@ -470,8 +470,8 @@ class ModelV2(Model):
                 y = numpy.array([c[1] for c in coords], dtype=float)
                 x -= self.image_x_abs
                 y -= self.image_y_abs
-                x /= self.zoomfactors[level]
-                y /= self.zoomfactors[level]
+                x /= self.zoomfactors[self.level]
+                y /= self.zoomfactors[self.level]
                 x = x.astype(int)
                 y = y.astype(int)
                 relcoords = set([(x[k], y[k]) for k in range(len(x))])
@@ -491,13 +491,13 @@ class ModelV2(Model):
                     if 'proba' in self.annotations[key].keys():
                         if self.annotations[key]['proba'] > self.thresh:
                             for center in relcoords:
-                                box = getbox(center[0], center[1], size=int(500 / self.zoomfactors[level]))
+                                box = getbox(center[0], center[1], size=int(500 / self.zoomfactors[self.level]))
                                 for c in box:
                                     if c[0] >= 0 and c[0] < 3 * self.view.viewapp.canvas.width and c[1] >= 0 and c[1] < 3 * self.view.viewapp.canvas.height:
                                         image.putpixel(c, self.active_color(self.annotations[key]['color']))
                     else:
                         for center in relcoords:
-                            box = getbox(center[0], center[1], size=int(500 / self.zoomfactors[level]))
+                            box = getbox(center[0], center[1], size=int(500 / self.zoomfactors[self.level]))
                             for c in box:
                                 if c[0] >= 0 and c[0] < 3 * self.view.viewapp.canvas.width and c[1] >= 0 and c[1] < 3 * self.view.viewapp.canvas.height:
                                     image.putpixel(c, self.active_color(self.annotations[key]['color']))
