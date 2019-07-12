@@ -6,6 +6,7 @@ from tkinter.filedialog import *
 from pythologistTK import model
 import os
 from tkinter import messagebox
+import sys
 
 
 def main():

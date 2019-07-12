@@ -6,9 +6,11 @@ from tqdm import tqdm
 from tkinter import messagebox
 import os
 import openslide
-from skimage.measure import find_contours, points_in_poly
+from skimage.measure import find_contours, points_in_poly, label
 import csv
 from skimage.exposure import is_low_contrast
+from skimage.morphology import dilation
+import pickle
 
 
 def processBrown2HevClassif(annotations, slide, progressbar):
@@ -113,6 +115,63 @@ def csv2dict(csvfile):
                 else:
                     dico[current_key].append(tuple([float(l) for l in line]))
     return dico
+
+
+def csv2annotationfile(csvfile, slide, annotationfilepath):
+
+    # slide definition and properties
+    #################################
+    mppx = float(slide.properties[openslide.PROPERTY_NAME_MPP_X])
+    mppy = float(slide.properties[openslide.PROPERTY_NAME_MPP_Y])
+    #############################################################
+
+    annotations = dict()
+
+    dico = csv2dict(csvfile)
+    k = 0
+    for key in dico.keys():
+        if 'Area' not in key:
+            k += 1
+            annotations[key] = {'coords': [(int(c[0] / mppx) - 9800, int(c[1] / mppy) - 163800) for c in dico[key]], 'color': 'green2', 'id': k}
+    with open(annotationfilepath, "wb") as f:
+        pickle.dump(annotations, f)
+
+
+def merge_annotation_files(annotationfilepath1, annotationfilepath2, outputfile, color='red'):
+    """
+    A function to merge two annotation files.
+    It takes the two dictionaries, and merge them.
+    A new dictionary is created with element of both dictionaries.
+    Keys and Ids are changed but remain unique.
+    Annotation 1 keeps its color, but annotation2 take the specified color.
+    """
+
+    # open dictionaries in their pickle files
+    with open(annotationfilepath1, "rb") as f1:
+        annotation1 = pickle.load(f1)
+
+    with open(annotationfilepath2, "rb") as f2:
+        annotation2 = pickle.load(f2)
+
+    merge = dict()
+    # new keys to insure both id and keys of new dico will be unique
+    mergekey = 1
+
+    # loop over first dictionary:
+    for key, val in annotation1.items():
+        merge[mergekey] = val
+        merge[mergekey]['id'] = mergekey
+        mergekey += 1
+
+    # loop over second dictionary:
+    for key, val in annotation2.items():
+        merge[mergekey] = val
+        merge[mergekey]['id'] = mergekey
+        merge[mergekey]['color'] = color
+        mergekey += 1
+
+    with open(outputfile, 'wb') as f3:
+        pickle.dump(merge, f3)
 
 
 def processCsvTumorArea2Brown(annotations, slide, progressbar):

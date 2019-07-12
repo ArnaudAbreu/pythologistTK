@@ -14,7 +14,7 @@ def main():
     style.set_theme("black")
     root.title("Pythologist")
 
-    app = model.Model(root)
+    app = model.ModelV2(root)
 
     def checkbeforeleaving():
         if messagebox.askyesno("Overwrite annotation file ?"):

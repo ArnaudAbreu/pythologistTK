@@ -143,3 +143,41 @@ class ViewerTab:
         if self.isSlideOn:
             self.image = self.model.zoomOut()
             self.redraw()
+
+
+class ViewerTabV2(ViewerTab):
+
+    def __init__(self, master, model, dim=800):
+
+        ViewerTab.__init__(self, master, model, dim)
+
+        # variable for spinbox
+        self.spinval = IntVar()
+
+        # add a slider
+        self.thresholdPanel = ttk.LabelFrame(self.sideFrame, width=90,
+                                             text="Threshold Panel")
+        self.thresholdPanel.pack(side=TOP)
+        self.scale = ttk.Scale(master=self.thresholdPanel, command=self.accept_whole_number_only, orient=VERTICAL, from_=51, to=255)
+        self.scale.bind("<ButtonRelease-1>", self.update_annotations)
+        self.scale.pack(side=LEFT)
+
+        self.threshspinbox = Spinbox(master=self.thresholdPanel, from_=51, to=255, textvariable=self.spinval, command=self.update, width=10)
+        self.threshspinbox.pack(side=LEFT)
+
+    def accept_whole_number_only(self, e=None):
+        value = self.scale.get()
+        if int(value) != value:
+            self.scale.set(round(value))
+        self.spinval.set(int(round(value)))
+        self.model.thresh = self.spinval.get()
+
+    def update(self, e=None):
+        """Updates the scale and spinbox"""
+        self.scale.set(self.threshspinbox.get())
+        self.model.thresh = self.spinval.get()
+
+    def update_annotations(self, event):
+        # can call any function that update annotations in the model
+        self.image = self.model.updateImage()
+        self.redraw()

@@ -4,13 +4,41 @@ from tkinter import ttk
 from ttkthemes import ThemedStyle
 from tkinter.filedialog import *
 from pythologistTK import application, processes
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageColor, ImageFont, ImageDraw, ImageEnhance
 from openslide import OpenSlide
 import pickle
 import numpy
 from skimage.draw import polygon, polygon_perimeter
 from inspect import getmembers, isfunction
 from multiprocessing import Process
+from scipy.misc import imread, imresize
+from skimage.morphology import dilation
+from skimage.segmentation import mark_boundaries
+
+
+def getbox(xcenter, ycenter, size=500):
+
+    """
+    A function to compute coordinates of a bounding box.
+
+    Arguments:
+        - xcenter: int, x position of the center of the box.
+        - ycenter: int, y position of the center of the box.
+        - size: int, size of the side of the box.
+
+    Returns:
+        - box: list of tuple of int, (x, y) coordinates of the sides of the box.
+    """
+    xo = xcenter - int(size / 2)
+    yo = ycenter - int(size / 2)
+    xe = xcenter + int(size / 2)
+    ye = ycenter + int(size / 2)
+    horizonhaut = [(x, yo) for x in range(xo, xe)]
+    horizonbas = [(x, ye) for x in range(xo, xe)]
+    verticalgauche = [(xo, y) for y in range(yo, ye)]
+    verticaldroite = [(xe, y) for y in range(yo, ye)]
+    box = horizonbas + horizonhaut + verticaldroite + verticalgauche
+    return box
 
 
 class Model:
@@ -99,9 +127,9 @@ class Model:
         print("number of pyramidal levels : ", self.level)
 
         # create an image low resolution to find ROI in current level
-        im = numpy.asarray(self.slide.read_region(location=(0, 0),
-                                                  level=self.level,
-                                                  size=self.slide.level_dimensions[self.level]))
+        im = numpy.array(self.slide.read_region(location=(0, 0),
+                                                level=self.level,
+                                                size=self.slide.level_dimensions[self.level]))
 
         # find ROI in current level
         [i, j] = numpy.where(im[:, :, 0] > 0)
@@ -153,6 +181,7 @@ class Model:
                                        level=self.level,
                                        size=(3 * canvaswidth,
                                              3 * canvasheight))
+
         return image
 
     def abscenter(self):
@@ -272,3 +301,206 @@ class Model:
         if self.annotationfilepath is not None:
             with open(self.annotationfilepath, "wb") as f:
                 pickle.dump(self.annotations, f)
+
+
+class ModelV2(Model):
+
+    def __init__(self, master):
+
+        # master is the tkinter main application
+        self.master = master
+        self.slidefilepath = None
+        self.annotationfile = None
+        self.annotations = None
+        self.thresh = 84
+
+
+################################################################################
+        # Menu creation
+################################################################################
+        # Menu bar
+        self.menubar = Menu(self.master)
+
+        # File Menu
+        self.file_menu = Menu(self.menubar)
+        self.file_menu.add_command(label="Open Image",
+                                   command=self.open_files)
+        self.menubar.add_cascade(label="File", menu=self.file_menu)
+
+        # link the menu to the app
+        self.master.config(menu=self.menubar)
+
+
+################################################################################
+        # processable objects
+################################################################################
+        self.slide = None
+        self.image_x_abs = 0.
+        self.image_y_abs = 0.
+
+
+################################################################################
+        # View : sub-application (TabApplication)
+################################################################################
+        # master of the view application is the main tkinter application,
+        # not the model itself
+        self.view = application.TabApplicationV2(self.master, self)
+
+
+################################################################################
+        # functions for image streaming
+################################################################################
+    def open_files(self):
+        # get path of the slide
+        self.slidefilepath = askopenfilename(title="open image",
+                                             filetypes=[('mrxs files', '.mrxs'),
+                                                        ('aperio files', '.svs'),
+                                                        ('hamamatsu files', '.ndpi'),
+                                                        ('hamamatsu2 files', '.vms'),
+                                                        ('hamamatsu3 files', '.vmu'),
+                                                        ('leica files', '.scn'),
+                                                        ('tiff files', '.tiff'),
+                                                        ('sakura files', '.svslide'),
+                                                        ('ventana files', '.bif'),
+                                                        ('tif files', '.tif'),
+                                                        ('all files', '.*')])
+        # print(type(self.slidefilepath))
+        if self.slidefilepath:
+            # create the slide object
+            self.slide = OpenSlide(self.slidefilepath)
+            print("open file : ", self.slidefilepath)
+        self.view.viewapp.initView()
+
+    def open_annotation_files(self, filename):
+
+        self.annotationfile = filename
+        if self.annotationfile:
+            if '.annot' in self.annotationfile:
+                with open(self.annotationfile, 'rb') as f:
+                    self.annotations = pickle.load(f)
+                    self.view.annotapp.isannotation = True
+                    self.boxes = dict()
+                    for key, value in self.annotations.items():
+                        coords = value['coords']
+                        xmin = min([c[0] for c in coords])
+                        ymin = min([c[1] for c in coords])
+                        xmax = max([c[0] for c in coords])
+                        ymax = max([c[1] for c in coords])
+                        self.boxes[key] = [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+
+    def translateImage(self, xref, yref, event):
+        canvasheight = self.view.viewapp.canvas.height
+        canvaswidth = self.view.viewapp.canvas.width
+        self.image_x_abs -= (event.x - xref) * numpy.power(2, self.level)
+        self.image_y_abs -= (event.y - yref) * numpy.power(2, self.level)
+        # have to redefine image to store "du rab" for incoming translations
+        image = self.slide.read_region(location=(self.image_x_abs,
+                                                 self.image_y_abs),
+                                       level=self.level,
+                                       size=(3 * canvaswidth,
+                                             3 * canvasheight))
+
+        if self.annotations is not None:
+            image = self.drawAnnotation(image)
+
+        return image
+
+    def zoomImage(self, x, y):
+        canvasheight = self.view.viewapp.canvas.height
+        canvaswidth = self.view.viewapp.canvas.width
+        self.image_x_abs = x - int(canvaswidth + (canvaswidth / 2)) * numpy.power(2, self.level)
+        self.image_y_abs = y - int(canvasheight + (canvasheight / 2)) * numpy.power(2, self.level)
+
+        # get image position in canvas at new level
+        image = self.slide.read_region(location=(self.image_x_abs,
+                                                 self.image_y_abs),
+                                       level=self.level,
+                                       size=(3 * canvaswidth,
+                                             3 * canvasheight))
+        # draw annotation if possible
+        if self.annotations is not None:
+            image = self.drawAnnotation(image)
+        return image
+
+    def active_color(self, color):
+        c = self.master.winfo_rgb(color)
+        r = c[0] / 65535 * 255
+        g = c[1] / 65535 * 255
+        b = c[2] / 65535 * 255
+        return (round(r), round(g), round(b))
+
+    def drawAnnotation(self, image):
+        """
+        image is a pillow image out of slide.read_region().
+        """
+        if isinstance(self.annotations, dict):
+            # first define the absolute size of the bounding box
+            absheight = (3 * self.view.viewapp.canvas.height) * numpy.power(2, self.level)
+            abswidth = (3 * self.view.viewapp.canvas.width) * numpy.power(2, self.level)
+
+            # then find all annotations that belongs to the box
+            # assertion: I have annotations at level 0...
+            visible = []
+            for key, box in self.boxes.items():
+                x = numpy.array([c[0] for c in box])
+                y = numpy.array([c[1] for c in box])
+                xinside = numpy.logical_and(x < self.image_x_abs + abswidth, x > self.image_x_abs)
+                yinside = numpy.logical_and(y < self.image_y_abs + absheight, y > self.image_y_abs)
+                both = numpy.logical_and(xinside, yinside)
+                if both.any():
+                    visible.append(key)
+
+            for key in visible:
+                coords = self.annotations[key]['coords']
+                x = numpy.array([c[0] for c in coords], dtype=float)
+                y = numpy.array([c[1] for c in coords], dtype=float)
+                x -= self.image_x_abs
+                y -= self.image_y_abs
+                x /= numpy.power(2, self.level)
+                y /= numpy.power(2, self.level)
+                x = x.astype(int)
+                y = y.astype(int)
+                relcoords = set([(x[k], y[k]) for k in range(len(x))])
+                # whatever happen, if the region is too small, should be able to put a flag...
+                # let's put it at x[0], y[0]
+                c0 = (x[0], y[0])
+                if 'flags' in self.annotations.keys() and self.annotations['flag'] is True:
+                    if c0[0] >= 0 and c0[0] < 3 * self.view.viewapp.canvas.width and c0[1] >= 0 and c0[1] < 3 * self.view.viewapp.canvas.height:
+                        draw = ImageDraw.Draw(image)
+                        draw.rectangle(((c0[0], c0[1]), (c0[0] + 50, c0[1] + 20)), fill=str(self.annotations[key]['color']))
+                        draw.text((c0[0], c0[1]), str(self.annotations[key]['id']))
+                if self.annotations[key]['display'] == 'point':
+                    for c in relcoords:
+                        if c[0] >= 0 and c[0] < 3 * self.view.viewapp.canvas.width and c[1] >= 0 and c[1] < 3 * self.view.viewapp.canvas.height:
+                            image.putpixel(c, self.active_color(self.annotations[key]['color']))
+                elif self.annotations[key]['display'] == 'box':
+                    if 'proba' in self.annotations[key].keys():
+                        if self.annotations[key]['proba'] > self.thresh:
+                            for center in relcoords:
+                                box = getbox(center[0], center[1], size=int(500 / numpy.power(2, self.level)))
+                                for c in box:
+                                    if c[0] >= 0 and c[0] < 3 * self.view.viewapp.canvas.width and c[1] >= 0 and c[1] < 3 * self.view.viewapp.canvas.height:
+                                        image.putpixel(c, self.active_color(self.annotations[key]['color']))
+                    else:
+                        for center in relcoords:
+                            box = getbox(center[0], center[1], size=int(500 / numpy.power(2, self.level)))
+                            for c in box:
+                                if c[0] >= 0 and c[0] < 3 * self.view.viewapp.canvas.width and c[1] >= 0 and c[1] < 3 * self.view.viewapp.canvas.height:
+                                    image.putpixel(c, self.active_color(self.annotations[key]['color']))
+
+            return image
+
+    def updateImage(self):
+        canvasheight = self.view.viewapp.canvas.height
+        canvaswidth = self.view.viewapp.canvas.width
+
+        # get image position in canvas at new level
+        image = self.slide.read_region(location=(self.image_x_abs,
+                                                 self.image_y_abs),
+                                       level=self.level,
+                                       size=(3 * canvaswidth,
+                                             3 * canvasheight))
+        # draw annotation if possible
+        if self.annotations is not None:
+            image = self.drawAnnotation(image)
+        return image
