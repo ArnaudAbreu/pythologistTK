@@ -6,13 +6,7 @@ Original author: Arnaud Abreu
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import *
-from PIL import Image, ImageTk
-from openslide import OpenSlide
-import pickle
-import numpy
-from scipy.misc import imsave
-import os
-import glob
+from PIL import ImageTk
 from pythologistTK import view
 
 

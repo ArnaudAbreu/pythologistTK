@@ -1,19 +1,18 @@
-# coding: utf8
+"""
+Model part of the interface.
+
+Classes.
+"""
+
 from tkinter import *
 from tkinter import ttk
-from ttkthemes import ThemedStyle
 from tkinter.filedialog import *
 from pythologistTK import application, processes
-from PIL import Image, ImageTk, ImageColor, ImageFont, ImageDraw, ImageEnhance
+from PIL import ImageDraw
 from openslide import OpenSlide
 import pickle
 import numpy
-from skimage.draw import polygon, polygon_perimeter
 from inspect import getmembers, isfunction
-from multiprocessing import Process
-from scipy.misc import imread, imresize
-from skimage.morphology import dilation
-from skimage.segmentation import mark_boundaries
 
 
 def zoomFactors(slide):
@@ -28,7 +27,6 @@ def zoomFactors(slide):
 
 
 def getbox(xcenter, ycenter, size=500):
-
     """
     A function to compute coordinates of a bounding box.
 
