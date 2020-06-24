@@ -8,12 +8,14 @@ from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import *
 from pythologistTK import application, processes
-from PIL import ImageDraw
+from PIL import ImageDraw,ImageTk, Image
 from openslide import OpenSlide
 import pickle
 import numpy
+from numpy import savetxt, save
 from inspect import getmembers, isfunction
-
+from skimage.io import imread
+import pickle
 
 def zoomFactors(slide):
     zoomdict = dict()
@@ -109,12 +111,13 @@ class Model:
                                                         ('sakura files', '.svslide'),
                                                         ('ventana files', '.bif'),
                                                         ('tif files', '.tif'),
-                                                        ('all files', '.*')])
+                                                        ('all files', '.*'),('png files', '.png')])
         # print(type(self.slidefilepath))
         if self.slidefilepath:
             # create the slide object
-            self.slide = OpenSlide(self.slidefilepath)
+            #self.slide = OpenSlide(self.slidefilepath)
             print("open file : ", self.slidefilepath)
+            print("HELLO")
             # get path of the annotation file
             self.annotationfilepath = self.slidefilepath.split(".")[0] + ".annot"
             # create the annotation object
@@ -129,12 +132,13 @@ class Model:
             self.view.annotapp.initAnnot()
             self.zoomfactors = zoomFactors(self.slide)
 
+    
+
     def initImage(self):
         # define current level of observation to lowest level (highest on pyramid)
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
         self.level = self.slide.level_count - 1
-        print("number of pyramidal levels : ", self.level)
 
         # create an image low resolution to find ROI in current level
         im = numpy.array(self.slide.read_region(location=(0, 0),
@@ -166,6 +170,10 @@ class Model:
                                              3 * canvasheight))
         print("I think I read level: ", self.level)
         return image
+
+    def initImagePng(self):
+        cmap = self.cmap_png
+        return cmap
 
     def translateImage(self, xref, yref, event):
         canvasheight = self.view.viewapp.canvas.height
@@ -336,6 +344,8 @@ class ModelV2(Model):
         self.file_menu = Menu(self.menubar)
         self.file_menu.add_command(label="Open Image",
                                    command=self.open_files)
+        self.file_menu.add_command(label="Superpose Cmap",
+                                   command=self.superpose_cmap)
         self.menubar.add_cascade(label="File", menu=self.file_menu)
 
         # link the menu to the app
@@ -346,6 +356,8 @@ class ModelV2(Model):
         # processable objects
 ################################################################################
         self.slide = None
+        self.cmap_png = None
+        self.positions = {}
         self.image_x_abs = 0.
         self.image_y_abs = 0.
 
@@ -361,6 +373,7 @@ class ModelV2(Model):
 ################################################################################
         # functions for image streaming
 ################################################################################
+
     def open_files(self):
         # get path of the slide
         self.slidefilepath = askopenfilename(title="open image",
@@ -382,6 +395,36 @@ class ModelV2(Model):
             print("open file : ", self.slidefilepath)
             self.zoomfactors = zoomFactors(self.slide)
         self.view.viewapp.initView()
+
+    def superpose_cmap(self):
+        self.pngpath = askopenfilename(title="open cmap",
+                                             filetypes=[('png files', '.png'),('all files', '.*')])
+        if self.pngpath:
+            # create the cmap object
+            self.cmap_png = Image.open(self.pngpath)
+            self.cmap_png.putalpha(100)
+            size_x , size_y = self.cmap_png.size
+            n = numpy.array(self.cmap_png)
+            for i in range(n.shape[0]):
+                for j in range(n.shape[1]):
+                    if n[i,j,0] == 0 and n[i,j,1] == 0 and n[i,j,2] == 0:
+                        n[i,j,3] = 0
+                    self.positions[(i,j)] = n[i,j]
+            self.positions['size_x'] = size_x 
+            self.positions['size_y'] = size_y 
+            
+                    
+            with open('positions_in_cmap.p','wb') as fp:
+                pickle.dump(self.positions,fp)
+
+            self.cmap_png = Image.fromarray(n)
+            print("Taille cmap : ",self.cmap_png.size)
+            #self.cmap_png = imread(self.pngpath)
+            print("open png file : ", self.pngpath)
+        self.view.viewapp.initViewSuperposed()
+
+        return 0
+
 
     def open_annotation_files(self, filename):
 
