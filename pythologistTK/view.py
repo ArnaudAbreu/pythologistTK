@@ -98,20 +98,6 @@ class ViewerTab:
         self.redraw()
         self.isSlideOn = True
 
-    def initViewPng(self):
-        # done
-        """
-        A function that create the image in the canvas
-        and initialize several variables
-        """
-        # if there is an image in the canvas, delete it
-        self.canvas.delete('all')
-
-        # image creation
-        self.cmap = self.model.initImagePng()
-        self.redrawPng()
-        self.isCmapOn = True
-
     def initViewSuperposed(self):
         # done
         """

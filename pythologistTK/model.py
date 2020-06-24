@@ -399,7 +399,6 @@ class ModelV2(Model):
     def superpose_cmap(self):
         self.pngpath = askopenfilename(title="open cmap",
                                              filetypes=[('png files', '.png'),('all files', '.*')])
-        # print(type(self.slidefilepath))
         if self.pngpath:
             # create the cmap object
             self.cmap_png = Image.open(self.pngpath)
