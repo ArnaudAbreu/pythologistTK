@@ -20,5 +20,5 @@ RQ : openslide installation is required.
 
 command: python path/to/pythologistTK/directory/tests/basicViewer.py
 
-if you want to use the lasted version:
+if you want to use the lasted version,
 command: python path/to/pythologistTK/directory/tests/basicViewerV2.py
