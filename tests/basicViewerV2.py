@@ -13,9 +13,8 @@ def main():
     style = ThemedStyle(root)
     style.set_theme("black")
     root.title("Pythologist")
-
     app = model.ModelV2(root)
-
+    print("For usage, please ensure you opened first a slide before superposition")
     def checkbeforeleaving():
         if messagebox.askyesno("Overwrite annotation file ?"):
             app.saveAnnotations()
