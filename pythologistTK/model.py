@@ -7,6 +7,7 @@ Classes.
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import *
+from tkinter import messagebox
 from pythologistTK import application, processes
 from PIL import ImageDraw,ImageTk, Image
 from openslide import OpenSlide
@@ -132,7 +133,6 @@ class Model:
             self.view.annotapp.initAnnot()
             self.zoomfactors = zoomFactors(self.slide)
 
-    
 
     def initImage(self):
         # define current level of observation to lowest level (highest on pyramid)
@@ -155,19 +155,22 @@ class Model:
         cj = int(cj)
 
         # image position in current level
-        ci -= int(canvasheight + (canvasheight / 2))
-        cj -= int(canvaswidth + (canvaswidth / 2))
-
+        ci1 = ci - int(canvasheight + (canvasheight / 2))
+        cj1 = cj - int(canvaswidth + (canvaswidth / 2))
+        self.cmapy = -ci1
+        self.cmapx = -cj1
         # image absolute position in slide
-        self.image_y_abs = ci * self.zoomfactors[self.level]
-        self.image_x_abs = cj * self.zoomfactors[self.level]
+        self.image_y_abs = ci1 * self.zoomfactors[self.level]
+        self.image_x_abs = cj1 * self.zoomfactors[self.level]
+        print('Absolute y position:' + str(self.image_y_abs))
+        print('Absolute x position:' + str(self.image_x_abs))
 
         # image creation
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
                                        level=self.level,
-                                       size=(3 * canvaswidth,
-                                             3 * canvasheight))
+                                       size=(3*canvaswidth,
+                                             3*canvasheight))
         print("I think I read level: ", self.level)
         return image
 
@@ -180,6 +183,8 @@ class Model:
         canvaswidth = self.view.viewapp.canvas.width
         self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
         self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
+        self.cmapy -= (event.y - yref)
+        self.cmapx -= (event.x - xref)
         # have to redefine image to store "du rab" for incoming translations
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
@@ -357,6 +362,8 @@ class ModelV2(Model):
 ################################################################################
         self.slide = None
         self.cmap_png = None
+        self.cmapy = 0
+        self.cmapx = 0
         self.positions = {}
         self.image_x_abs = 0.
         self.image_y_abs = 0.
@@ -400,6 +407,10 @@ class ModelV2(Model):
         self.pngpath = askopenfilename(title="open cmap",
                                              filetypes=[('png files', '.png'),('all files', '.*')])
         if self.pngpath:
+            if messagebox.askyesno(message="Is this a FISH color map?"):
+                self.view.viewapp.isFISH = True
+            else:
+                self.view.viewapp.isFISH = False
             # create the cmap object
             self.cmap_png = Image.open(self.pngpath)
             self.cmap_png.putalpha(100)
@@ -410,10 +421,9 @@ class ModelV2(Model):
                     if n[i,j,0] == 0 and n[i,j,1] == 0 and n[i,j,2] == 0:
                         n[i,j,3] = 0
                     self.positions[(i,j)] = n[i,j]
-            self.positions['size_x'] = size_x 
-            self.positions['size_y'] = size_y 
-            
-                    
+            self.positions['size_x'] = size_x
+            self.positions['size_y'] = size_y
+
             with open('positions_in_cmap.p','wb') as fp:
                 pickle.dump(self.positions,fp)
 
@@ -448,6 +458,8 @@ class ModelV2(Model):
         canvaswidth = self.view.viewapp.canvas.width
         self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
         self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
+        self.cmapy += (event.y - yref)
+        self.cmapx += (event.x - xref)
         # have to redefine image to store "du rab" for incoming translations
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
@@ -465,7 +477,8 @@ class ModelV2(Model):
         canvaswidth = self.view.viewapp.canvas.width
         self.image_x_abs = x - int(canvaswidth + (canvaswidth / 2)) * self.zoomfactors[self.level]
         self.image_y_abs = y - int(canvasheight + (canvasheight / 2)) * self.zoomfactors[self.level]
-
+        self.cmapy = - int((self.image_y_abs / self.zoomfactors[self.level]))
+        self.cmapx = - int((self.image_x_abs / self.zoomfactors[self.level]))
         # get image position in canvas at new level
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),

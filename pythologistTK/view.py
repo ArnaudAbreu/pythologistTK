@@ -10,7 +10,7 @@ import PIL
 from PIL import ImageTk, Image
 from PIL.Image import *
 from PIL.Image import BOX, LINEAR, NEAREST, EXTENT, fromarray
-import numpy 
+import numpy
 
 class ResizableCanvas(Canvas):
     """
@@ -44,8 +44,11 @@ class ViewerTab:
         self.image_y_abs = 0.
         self.isSlideOn = False
         self.isSuperposed = False
+        self.isFISH = False
         self.image = None
         self.cmap = None
+        self.cmap_x = 0
+        self.cmap_y = 0
         self.initWidthCmap = 0
         self.initHeightCmap = 0
         self.photoimage = None
@@ -116,7 +119,6 @@ class ViewerTab:
         self.isSuperposed = True
         self.isSlideOn = True
         self.redrawSuperposed()
-        
 
     def redraw(self):
         self.image.putalpha(255)
@@ -129,8 +131,8 @@ class ViewerTab:
                                  tags="image")
         self.canvas.pack()
 
-    def my_resize(self,size): #Not better than PIL.Image.transform or resize method
-        
+    def my_resize(self, size): #Not better than PIL.Image.transform or resize method
+
         needed_y , needed_x = size
         size_new_image = max([needed_x,needed_y])
         new_image = PIL.Image.new('RGBA',(size_new_image,size_new_image))
@@ -139,7 +141,7 @@ class ViewerTab:
         pixel_size = 1
 
         for key in self.model.positions.keys():
-            if key != 'size_x' and key != 'size_y': 
+            if key != 'size_x' and key != 'size_y':
                 xo = int( (key[0] *598) / factor)
                 yo = int( (key[1] *598) /factor)
 
@@ -147,29 +149,29 @@ class ViewerTab:
             if self.model.level > 7:
                 pixel_size = 1
 
-            if self.model.level == 7:              
+            if self.model.level == 7:
                 pixel_size = 4
 
-            if self.model.level == 6:              
+            if self.model.level == 6:
                 pixel_size = 9
 
-            if self.model.level == 5:              
+            if self.model.level == 5:
                 pixel_size = 18
 
-            if self.model.level == 4:            
+            if self.model.level == 4:
                 pixel_size = 37
 
-            if self.model.level == 3:               
+            if self.model.level == 3:
                 pixel_size = 74
 
-            elif self.model.level == 2:              
+            elif self.model.level == 2:
                 pixel_size = 149
 
-            elif self.model.level == 1:              
+            elif self.model.level == 1:
                 pixel_size = 299
 
             elif self.model.level == 0:
-                pixel_size = 598   
+                pixel_size = 598
 
             for i in range(pixel_size):
                 for j in range(pixel_size):
@@ -186,26 +188,28 @@ class ViewerTab:
         print("cmap size : ",new_image.size,"| slide size :", needed_x,needed_y, "| zoom lvl :", self.model.level, "| pixel size :", pixel_size)
         return new_image
 
-
     def redrawSuperposed(self):
         self.image.putalpha(255)
 
-        n = numpy.array(self.image)
-        x, y = numpy.where(n[:, :, 0] > 0)
-        #print(x,y)
-        min_x = int(min(x))
-        min_y = int(min(y))
-        max_x = int(max(x))
-        max_y = int(max(y))
-        dx = max_x - min_x
-        dy = max_y - min_y
-        size = (dy,dx)
-        #print("Size cmap ",self.cmap.size,"Zoom factor ",self.model.level)
+        if self.isFISH:
+            n = numpy.array(self.image)
+            x, y = numpy.where(n[:, :, 0] > 0)
+            #print(x,y)
+            min_x = int(min(x))
+            min_y = int(min(y))
+            max_x = int(max(x))
+            max_y = int(max(y))
+            dx = max_x - min_x
+            dy = max_y - min_y
+            size = (dy,dx)
+            #print("Size cmap ",self.cmap.size,"Zoom factor ",self.model.level)
 
-        #self.cmap = self.cmap.transform(size,EXTENT,(0,0)+self.cmap.size)
-        self.cmap = self.my_resize((dx,dy))
-        self.image.paste(self.cmap,(min_y,min_x),self.cmap)
-        #print(self.image.size)
+            #self.cmap = self.cmap.transform(size,EXTENT,(0,0)+self.cmap.size)
+            self.cmap = self.my_resize((dx,dy))
+            self.image.paste(self.cmap,(min_y,min_x),self.cmap)
+        else:
+            self.cmap = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
+            self.image.paste(self.cmap, (self.model.cmapx+1, self.model.cmapy+1), mask=self.cmap)
 
         self.photoimage = ImageTk.PhotoImage(self.image)
         #self.cmap = ImageTk.PhotoImage(self.cmap)
