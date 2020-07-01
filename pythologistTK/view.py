@@ -208,8 +208,8 @@ class ViewerTab:
             self.cmap = self.my_resize((dx,dy))
             self.image.paste(self.cmap,(min_y,min_x),self.cmap)
         else:
-            self.cmap = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
-            self.image.paste(self.cmap, (self.model.cmapx+1, self.model.cmapy+1), mask=self.cmap)
+            cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
+            self.image.paste(cmap_resize, (self.model.cmapx+1, self.model.cmapy+1), mask=cmap_resize)
 
         self.photoimage = ImageTk.PhotoImage(self.image)
         #self.cmap = ImageTk.PhotoImage(self.cmap)
