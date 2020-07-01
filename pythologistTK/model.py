@@ -18,6 +18,7 @@ from inspect import getmembers, isfunction
 from skimage.io import imread
 import pickle
 
+
 def zoomFactors(slide):
     zoomdict = dict()
     absdim = slide.level_dimensions[0][0]
@@ -149,14 +150,14 @@ class Model:
         [i, j] = numpy.where(im[:, :, 0] > 0)
 
         # center of ROI in current level
-        ci = round(numpy.mean(i))
-        cj = round(numpy.mean(j))
-        ci = int(ci)
-        cj = int(cj)
+        ci = numpy.mean(i)
+        cj = numpy.mean(j)
 
         # image position in current level
-        ci -= int(canvasheight + (canvasheight / 2))
-        cj -= int(canvaswidth + (canvaswidth / 2))
+        ci -= (canvasheight + (canvasheight / 2))
+        cj -= (canvaswidth + (canvaswidth / 2))
+        ci = int(round(ci))
+        cj = int(round(cj))
         self.cmapy = -ci
         self.cmapx = -cj
         # image absolute position in slide
