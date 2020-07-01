@@ -155,13 +155,13 @@ class Model:
         cj = int(cj)
 
         # image position in current level
-        ci1 = ci - int(canvasheight + (canvasheight / 2))
-        cj1 = cj - int(canvaswidth + (canvaswidth / 2))
-        self.cmapy = -ci1
-        self.cmapx = -cj1
+        ci -= int(canvasheight + (canvasheight / 2))
+        cj -= int(canvaswidth + (canvaswidth / 2))
+        self.cmapy = -ci
+        self.cmapx = -cj
         # image absolute position in slide
-        self.image_y_abs = ci1 * self.zoomfactors[self.level]
-        self.image_x_abs = cj1 * self.zoomfactors[self.level]
+        self.image_y_abs = ci * self.zoomfactors[self.level]
+        self.image_x_abs = cj * self.zoomfactors[self.level]
         print('Absolute y position:' + str(self.image_y_abs))
         print('Absolute x position:' + str(self.image_x_abs))
 
