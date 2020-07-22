@@ -190,7 +190,6 @@ class ViewerTab:
 
     def redrawSuperposed(self):
         self.image.putalpha(255)
-
         if self.isFISH:
             n = numpy.array(self.image)
             x, y = numpy.where(n[:, :, 0] > 0)
@@ -208,6 +207,7 @@ class ViewerTab:
             self.cmap = self.my_resize((dx,dy))
             self.image.paste(self.cmap,(min_y,min_x),self.cmap)
         else:
+            self.cmap.putalpha(self.model.tcmap)
             cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
             mod = int(round(cmap_resize.size[0]/(self.cmap.size[0]*3)))
             self.image.paste(cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=cmap_resize)
@@ -287,6 +287,7 @@ class ViewerTabV2(ViewerTab):
 
         # variable for spinbox
         self.spinval = IntVar()
+        self.cmap_trans = IntVar()
 
         # add a slider
         self.thresholdPanel = ttk.LabelFrame(self.sideFrame, width=90,
@@ -298,6 +299,18 @@ class ViewerTabV2(ViewerTab):
 
         self.threshspinbox = Spinbox(master=self.thresholdPanel, from_=51, to=255, textvariable=self.spinval, command=self.update, width=10)
         self.threshspinbox.pack(side=LEFT)
+
+        # add a slider
+        self.CmapTransparency = ttk.LabelFrame(self.sideFrame, width=90,
+                                             text="Transparency Cmap")
+        self.CmapTransparency.pack(side=TOP)
+        self.scale_cmap = ttk.Scale(master=self.CmapTransparency, command=self.accept_whole_number_only_cmap, orient=VERTICAL, from_=0, to=255)
+        if self.isSuperposed:
+            self.scale_cmap.bind("<Button-1>", self.redrawSuperposed())
+        self.scale_cmap.pack(side=LEFT)
+
+        self.cmapspinbox = Spinbox(master=self.CmapTransparency, from_=0, to=255, textvariable=self.cmap_trans, command=self.update_cmap, width=10)
+        self.cmapspinbox.pack(side=LEFT)
 
     def accept_whole_number_only(self, e=None):
         value = self.scale.get()
@@ -315,3 +328,15 @@ class ViewerTabV2(ViewerTab):
         # can call any function that update annotations in the model
         self.image = self.model.updateImage()
         self.redraw()
+
+    def accept_whole_number_only_cmap(self, e=None):
+        value = self.scale_cmap.get()
+        if int(value) != value:
+            self.scale_cmap.set(round(value))
+        self.cmap_trans.set(int(round(value)))
+        self.model.tcmap = self.cmap_trans.get()
+
+    def update_cmap(self, e=None):
+        """Updates the scale and spinbox"""
+        self.scale_cmap.set(self.cmapspinbox.get())
+        self.model.tcmap = self.cmap_trans.get()

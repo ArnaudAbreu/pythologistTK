@@ -338,6 +338,7 @@ class ModelV2(Model):
         self.annotationfile = None
         self.annotations = None
         self.thresh = 84
+        self.tcmap = 100
 
 
 ################################################################################
