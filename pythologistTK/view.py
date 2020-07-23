@@ -103,6 +103,7 @@ class ViewerTab:
 
         # image creation
         self.image = self.model.initImage()
+        self.image.putalpha(255)
         self.model.angle = 0
         self.redraw()
         self.isSlideOn = True
@@ -213,12 +214,14 @@ class ViewerTab:
             self.cmap = self.my_resize((dx,dy))
             self.image.paste(self.cmap,(min_y,min_x),self.cmap)
         else:
+            print(self.model.tcmap)
             self.cmap.putalpha(self.model.tcmap)
             self.cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
             mod = int(round(self.cmap_resize.size[0]/(self.cmap.size[0]*3)))
-            self.image.paste(self.cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=self.cmap_resize)
+            image = self.image.copy()
+            image.paste(self.cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=self.cmap_resize)
 
-        self.photoimage = ImageTk.PhotoImage(self.image.rotate(self.model.angle))
+        self.photoimage = ImageTk.PhotoImage(image.rotate(self.model.angle))
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width,
                                  -self.canvas.height,
@@ -326,8 +329,8 @@ class ViewerTabV2(ViewerTab):
                                              text="Transparency Cmap")
         self.CmapTransparency.pack(side=TOP)
         self.scale_cmap = ttk.Scale(master=self.CmapTransparency, command=self.accept_whole_number_only_cmap, orient=VERTICAL, from_=0, to=255)
-        if self.isSuperposed:
-            self.scale_cmap.bind("<Button-1>", self.redrawSuperposed())
+        #if self.isSuperposed:
+            #self.scale_cmap.bind("<Button-1>", self.redrawSuperposed())
         self.scale_cmap.pack(side=LEFT)
 
         self.cmapspinbox = Spinbox(master=self.CmapTransparency, from_=0, to=255, textvariable=self.cmap_trans, command=self.update_cmap, width=10)
@@ -354,10 +357,15 @@ class ViewerTabV2(ViewerTab):
         value = self.scale_cmap.get()
         if int(value) != value:
             self.scale_cmap.set(round(value))
-        self.cmap_trans.set(int(round(value)))
-        self.model.tcmap = self.cmap_trans.get()
+        #self.cmap_trans.set(int(round(value)))
+        #self.model.tcmap = self.cmap_trans.get()
+        self.model.tcmap = int(self.scale_cmap.get())
+        self.cmap_trans.set(int(self.scale_cmap.get()))
+        if self.isSuperposed:
+            self.redrawSuperposed()
 
     def update_cmap(self, e=None):
         """Updates the scale and spinbox"""
         self.scale_cmap.set(self.cmapspinbox.get())
-        self.model.tcmap = self.cmap_trans.get()
+        #self.model.tcmap = self.cmap_trans.get()
+        self.model.tcmap = int(self.cmapspinbox.get())
