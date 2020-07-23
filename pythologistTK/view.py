@@ -5,6 +5,7 @@ Original author: Arnaud Abreu
 """
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 from tkinter.filedialog import *
 import PIL
 from PIL import ImageTk, Image
@@ -78,14 +79,18 @@ class ViewerTab:
         self.canvas.bind("<Button-1>", self.dirbutton)
         self.canvas.bind("<B1-Motion>", self.move)
         self.canvas.bind("<ButtonRelease-1>", self.nomove)
+        self.canvas.bind("<Button-2>", self.get_position)
 
         self.buttonzoom = ttk.Button(self.zoomPanel, text="Zoom",
                                      command=self.zoom)
         self.buttondezoom = ttk.Button(self.zoomPanel, text="Dezoom",
                                        command=self.dezoom)
+        self.buttonrotate = ttk.Button(self.zoomPanel, text="Rotate",
+                                       command=self.rotate)
 
         self.buttonzoom.pack()
         self.buttondezoom.pack()
+        self.buttonrotate.pack()
 
     def initView(self):
         # done
@@ -98,6 +103,7 @@ class ViewerTab:
 
         # image creation
         self.image = self.model.initImage()
+        self.model.angle = 0
         self.redraw()
         self.isSlideOn = True
 
@@ -122,7 +128,7 @@ class ViewerTab:
 
     def redraw(self):
         self.image.putalpha(255)
-        self.photoimage = ImageTk.PhotoImage(self.image)
+        self.photoimage = ImageTk.PhotoImage(self.image.rotate(self.model.angle))
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width,
                                  -self.canvas.height,
@@ -208,13 +214,11 @@ class ViewerTab:
             self.image.paste(self.cmap,(min_y,min_x),self.cmap)
         else:
             self.cmap.putalpha(self.model.tcmap)
-            cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
-            mod = int(round(cmap_resize.size[0]/(self.cmap.size[0]*3)))
-            self.image.paste(cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=cmap_resize)
+            self.cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
+            mod = int(round(self.cmap_resize.size[0]/(self.cmap.size[0]*3)))
+            self.image.paste(self.cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=self.cmap_resize)
 
-        self.photoimage = ImageTk.PhotoImage(self.image)
-        #self.cmap = ImageTk.PhotoImage(self.cmap)
-        #self.photoimage = self.photoimage.paste(self.cmap)
+        self.photoimage = ImageTk.PhotoImage(self.image.rotate(self.model.angle))
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width,
                                  -self.canvas.height,
@@ -278,6 +282,23 @@ class ViewerTab:
             self.image = self.model.zoomOut()
             self.redraw()
 
+    def rotate(self):
+        if self.isSuperposed:
+            self.model.angle += 90
+            self.redrawSuperposed()
+
+        if self.isSlideOn and self.isSuperposed == False:
+            self.model.angle += 90
+            self.redraw()
+
+    def get_position(self, event):
+        abs_x = event.x + self.canvas.width - self.model.cmapx
+        abs_y = event.y + self.canvas.height - self.model.cmapy
+        factor_resize_x = self.cmap_resize.size[0]/self.model.cmap_png.size[0]
+        factor_resize_y = self.cmap_resize.size[1]/self.model.cmap_png.size[1]
+        index_x = int(abs_x/factor_resize_x)
+        index_y = int(abs_y/factor_resize_y)
+        messagebox.showinfo('Patch coordinates', 'X: % d \n Y: % d' % (index_x, index_y))
 
 class ViewerTabV2(ViewerTab):
 

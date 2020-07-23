@@ -86,6 +86,7 @@ class Model:
         self.image_x_abs = 0.
         self.image_y_abs = 0.
         self.annotations = None
+        self.angle = 0
 
 
 ################################################################################
@@ -182,10 +183,14 @@ class Model:
     def translateImage(self, xref, yref, event):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
-        self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
-        self.cmapy -= (event.y - yref)
-        self.cmapx -= (event.x - xref)
+        factorx = (-1)*numpy.sin(self.angle) + numpy.cos(self.angle)
+        factory = numpy.sin(self.angle) + numpy.cos(self.angle)*(-1)^(self.angle/90)
+        x = (event.x - xref)*factorx
+        y = (event.y - yref)*factory
+        self.image_x_abs -= x * self.zoomfactors[self.level]
+        self.image_y_abs -= y * self.zoomfactors[self.level]
+        self.cmapy -= y
+        self.cmapx -= x
         # have to redefine image to store "du rab" for incoming translations
         image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
@@ -458,16 +463,35 @@ class ModelV2(Model):
     def translateImage(self, xref, yref, event):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
-        self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
-        self.cmapy += (event.y - yref)
-        self.cmapx += (event.x - xref)
+        #self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
+        #self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
+        #self.cmapy += (event.y - yref)
+        #self.cmapx += (event.x - xref)
+        factory = (-1)*int(numpy.sin(numpy.radians(self.angle))) + int(numpy.cos(numpy.radians(self.angle)))
+        factorx = int(numpy.sin(numpy.radians(self.angle))) + int(numpy.cos(numpy.radians(self.angle)))*(-1)**(self.angle/90)
+        x = (event.x - xref)*int(factorx)
+        y = (event.y - yref)*int(factory)
         # have to redefine image to store "du rab" for incoming translations
-        image = self.slide.read_region(location=(self.image_x_abs,
+        if self.angle % 180 == 0:
+            self.image_x_abs -= x * self.zoomfactors[self.level]
+            self.image_y_abs -= y * self.zoomfactors[self.level]
+            self.cmapy += y
+            self.cmapx += x
+            image = self.slide.read_region(location=(self.image_x_abs,
                                                  self.image_y_abs),
-                                       level=self.level,
-                                       size=(3 * canvaswidth,
-                                             3 * canvasheight))
+                                           level=self.level,
+                                           size=(3 * canvaswidth,
+                                                 3 * canvasheight))
+        else:
+            self.image_x_abs -= y * self.zoomfactors[self.level]
+            self.image_y_abs -= x * self.zoomfactors[self.level]
+            self.cmapy += x
+            self.cmapx += y
+            image = self.slide.read_region(location=(self.image_x_abs,
+                                                 self.image_y_abs),
+                                           level=self.level,
+                                           size=(3 * canvaswidth,
+                                                 3 * canvasheight))
 
         if self.annotations is not None:
             image = self.drawAnnotation(image)
