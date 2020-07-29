@@ -8,7 +8,7 @@ from tkinter import ttk
 from tkinter import messagebox
 from tkinter.filedialog import *
 import PIL
-from PIL import ImageTk, Image
+from PIL import ImageTk, Image, ImageOps
 from PIL.Image import *
 from PIL.Image import BOX, LINEAR, NEAREST, EXTENT, fromarray
 import numpy
@@ -87,10 +87,13 @@ class ViewerTab:
                                        command=self.dezoom)
         self.buttonrotate = ttk.Button(self.zoomPanel, text="Rotate",
                                        command=self.rotate)
+        self.buttonflip = ttk.Button(self.zoomPanel, text="Flip",
+                                       command=self.flip)
 
         self.buttonzoom.pack()
         self.buttondezoom.pack()
         self.buttonrotate.pack()
+        self.buttonflip.pack()
 
     def initView(self):
         # done
@@ -129,6 +132,8 @@ class ViewerTab:
 
     def redraw(self):
         self.image.putalpha(255)
+        if self.model.flip:
+            self.image = ImageOps.mirror(self.image)
         self.photoimage = ImageTk.PhotoImage(self.image.rotate(self.model.angle))
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width,
@@ -214,12 +219,13 @@ class ViewerTab:
             self.cmap = self.my_resize((dx,dy))
             self.image.paste(self.cmap,(min_y,min_x),self.cmap)
         else:
-            print(self.model.tcmap)
             self.cmap.putalpha(self.model.tcmap)
             self.cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
             mod = int(round(self.cmap_resize.size[0]/(self.cmap.size[0]*3)))
             image = self.image.copy()
             image.paste(self.cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=self.cmap_resize)
+            if self.model.flip:
+                image = ImageOps.mirror(image)
 
         self.photoimage = ImageTk.PhotoImage(image.rotate(self.model.angle))
         self.canvas.delete("image")
@@ -288,15 +294,40 @@ class ViewerTab:
     def rotate(self):
         if self.isSuperposed:
             self.model.angle += 90
+            if self.model.angle == 360:
+                self.model.angle = 0
             self.redrawSuperposed()
 
         if self.isSlideOn and self.isSuperposed == False:
             self.model.angle += 90
             self.redraw()
 
+    def flip(self):
+        if self.isSuperposed:
+            if self.model.flip:
+                self.model.flip = False
+            else:
+                self.model.flip = True
+            self.redrawSuperposed()
+
+        if self.isSlideOn and self.isSuperposed == False:
+            if self.model.flip:
+                self.model.flip = False
+            else:
+                self.model.flip = True
+            self.redraw()
+
     def get_position(self, event):
-        abs_x = event.x + self.canvas.width - self.model.cmapx
-        abs_y = event.y + self.canvas.height - self.model.cmapy
+        factory = (-1)*int(numpy.sin(numpy.radians(self.model.angle))) + int(numpy.cos(numpy.radians(self.model.angle)))
+        factorx = int(numpy.sin(numpy.radians(self.model.angle))) + int(numpy.cos(numpy.radians(self.model.angle)))*(-1)**(self.model.angle/90)
+        if self.model.flip:
+            event.x = self.canvas.width - event.x
+        if self.model.angle % 180 == 0:
+            abs_x = factorx*event.x + self.canvas.width*2**(self.model.angle/180) - self.model.cmapx
+            abs_y = factory*event.y + self.canvas.height*2**(self.model.angle/180) - self.model.cmapy
+        else:
+            abs_x = factory*event.y + (3*self.canvas.width+self.canvas.height*(factorx))/2 - self.model.cmapx
+            abs_y = factorx*event.x + (3*self.canvas.height+self.canvas.width*(factory))/2 - self.model.cmapy
         factor_resize_x = self.cmap_resize.size[0]/self.model.cmap_png.size[0]
         factor_resize_y = self.cmap_resize.size[1]/self.model.cmap_png.size[1]
         index_x = int(abs_x/factor_resize_x)

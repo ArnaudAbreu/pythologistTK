@@ -374,6 +374,7 @@ class ModelV2(Model):
         self.positions = {}
         self.image_x_abs = 0.
         self.image_y_abs = 0.
+        self.flip = False
 
 
 ################################################################################
@@ -463,16 +464,14 @@ class ModelV2(Model):
     def translateImage(self, xref, yref, event):
         canvasheight = self.view.viewapp.canvas.height
         canvaswidth = self.view.viewapp.canvas.width
-        #self.image_x_abs -= (event.x - xref) * self.zoomfactors[self.level]
-        #self.image_y_abs -= (event.y - yref) * self.zoomfactors[self.level]
-        #self.cmapy += (event.y - yref)
-        #self.cmapx += (event.x - xref)
         factory = (-1)*int(numpy.sin(numpy.radians(self.angle))) + int(numpy.cos(numpy.radians(self.angle)))
         factorx = int(numpy.sin(numpy.radians(self.angle))) + int(numpy.cos(numpy.radians(self.angle)))*(-1)**(self.angle/90)
         x = (event.x - xref)*int(factorx)
         y = (event.y - yref)*int(factory)
         # have to redefine image to store "du rab" for incoming translations
         if self.angle % 180 == 0:
+            if self.flip:
+                x = -x
             self.image_x_abs -= x * self.zoomfactors[self.level]
             self.image_y_abs -= y * self.zoomfactors[self.level]
             self.cmapy += y
@@ -483,6 +482,8 @@ class ModelV2(Model):
                                            size=(3 * canvaswidth,
                                                  3 * canvasheight))
         else:
+            if self.flip:
+                y = -y
             self.image_x_abs -= y * self.zoomfactors[self.level]
             self.image_y_abs -= x * self.zoomfactors[self.level]
             self.cmapy += x
