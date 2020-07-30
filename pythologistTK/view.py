@@ -5,12 +5,13 @@ Original author: Arnaud Abreu
 """
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 from tkinter.filedialog import *
 import PIL
-from PIL import ImageTk, Image
+from PIL import ImageTk, Image, ImageOps
 from PIL.Image import *
 from PIL.Image import BOX, LINEAR, NEAREST, EXTENT, fromarray
-import numpy 
+import numpy
 
 class ResizableCanvas(Canvas):
     """
@@ -44,8 +45,11 @@ class ViewerTab:
         self.image_y_abs = 0.
         self.isSlideOn = False
         self.isSuperposed = False
+        self.isFISH = False
         self.image = None
         self.cmap = None
+        self.cmap_x = 0
+        self.cmap_y = 0
         self.initWidthCmap = 0
         self.initHeightCmap = 0
         self.photoimage = None
@@ -75,14 +79,21 @@ class ViewerTab:
         self.canvas.bind("<Button-1>", self.dirbutton)
         self.canvas.bind("<B1-Motion>", self.move)
         self.canvas.bind("<ButtonRelease-1>", self.nomove)
+        self.canvas.bind("<Button-2>", self.get_position)
 
         self.buttonzoom = ttk.Button(self.zoomPanel, text="Zoom",
                                      command=self.zoom)
         self.buttondezoom = ttk.Button(self.zoomPanel, text="Dezoom",
                                        command=self.dezoom)
+        self.buttonrotate = ttk.Button(self.zoomPanel, text="Rotate",
+                                       command=self.rotate)
+        self.buttonflip = ttk.Button(self.zoomPanel, text="Flip",
+                                       command=self.flip)
 
         self.buttonzoom.pack()
         self.buttondezoom.pack()
+        self.buttonrotate.pack()
+        self.buttonflip.pack()
 
     def initView(self):
         # done
@@ -95,6 +106,8 @@ class ViewerTab:
 
         # image creation
         self.image = self.model.initImage()
+        self.image.putalpha(255)
+        self.model.angle = 0
         self.redraw()
         self.isSlideOn = True
 
@@ -116,11 +129,12 @@ class ViewerTab:
         self.isSuperposed = True
         self.isSlideOn = True
         self.redrawSuperposed()
-        
 
     def redraw(self):
         self.image.putalpha(255)
-        self.photoimage = ImageTk.PhotoImage(self.image)
+        if self.model.flip:
+            self.image = ImageOps.mirror(self.image)
+        self.photoimage = ImageTk.PhotoImage(self.image.rotate(self.model.angle))
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width,
                                  -self.canvas.height,
@@ -129,8 +143,8 @@ class ViewerTab:
                                  tags="image")
         self.canvas.pack()
 
-    def my_resize(self,size): #Not better than PIL.Image.transform or resize method
-        
+    def my_resize(self, size): #Not better than PIL.Image.transform or resize method
+
         needed_y , needed_x = size
         size_new_image = max([needed_x,needed_y])
         new_image = PIL.Image.new('RGBA',(size_new_image,size_new_image))
@@ -139,7 +153,7 @@ class ViewerTab:
         pixel_size = 1
 
         for key in self.model.positions.keys():
-            if key != 'size_x' and key != 'size_y': 
+            if key != 'size_x' and key != 'size_y':
                 xo = int( (key[0] *598) / factor)
                 yo = int( (key[1] *598) /factor)
 
@@ -147,29 +161,29 @@ class ViewerTab:
             if self.model.level > 7:
                 pixel_size = 1
 
-            if self.model.level == 7:              
+            if self.model.level == 7:
                 pixel_size = 4
 
-            if self.model.level == 6:              
+            if self.model.level == 6:
                 pixel_size = 9
 
-            if self.model.level == 5:              
+            if self.model.level == 5:
                 pixel_size = 18
 
-            if self.model.level == 4:            
+            if self.model.level == 4:
                 pixel_size = 37
 
-            if self.model.level == 3:               
+            if self.model.level == 3:
                 pixel_size = 74
 
-            elif self.model.level == 2:              
+            elif self.model.level == 2:
                 pixel_size = 149
 
-            elif self.model.level == 1:              
+            elif self.model.level == 1:
                 pixel_size = 299
 
             elif self.model.level == 0:
-                pixel_size = 598   
+                pixel_size = 598
 
             for i in range(pixel_size):
                 for j in range(pixel_size):
@@ -186,30 +200,34 @@ class ViewerTab:
         print("cmap size : ",new_image.size,"| slide size :", needed_x,needed_y, "| zoom lvl :", self.model.level, "| pixel size :", pixel_size)
         return new_image
 
-
     def redrawSuperposed(self):
         self.image.putalpha(255)
+        if self.isFISH:
+            n = numpy.array(self.image)
+            x, y = numpy.where(n[:, :, 0] > 0)
+            #print(x,y)
+            min_x = int(min(x))
+            min_y = int(min(y))
+            max_x = int(max(x))
+            max_y = int(max(y))
+            dx = max_x - min_x
+            dy = max_y - min_y
+            size = (dy,dx)
+            #print("Size cmap ",self.cmap.size,"Zoom factor ",self.model.level)
 
-        n = numpy.array(self.image)
-        x, y = numpy.where(n[:, :, 0] > 0)
-        #print(x,y)
-        min_x = int(min(x))
-        min_y = int(min(y))
-        max_x = int(max(x))
-        max_y = int(max(y))
-        dx = max_x - min_x
-        dy = max_y - min_y
-        size = (dy,dx)
-        #print("Size cmap ",self.cmap.size,"Zoom factor ",self.model.level)
+            #self.cmap = self.cmap.transform(size,EXTENT,(0,0)+self.cmap.size)
+            self.cmap = self.my_resize((dx,dy))
+            self.image.paste(self.cmap,(min_y,min_x),self.cmap)
+        else:
+            self.cmap.putalpha(self.model.tcmap)
+            self.cmap_resize = self.cmap.resize(self.model.slide.level_dimensions[self.model.level], resample=NEAREST)
+            mod = int(round(self.cmap_resize.size[0]/(self.cmap.size[0]*3)))
+            image = self.image.copy()
+            image.paste(self.cmap_resize, (self.model.cmapx, self.model.cmapy+mod), mask=self.cmap_resize)
+            if self.model.flip:
+                image = ImageOps.mirror(image)
 
-        #self.cmap = self.cmap.transform(size,EXTENT,(0,0)+self.cmap.size)
-        self.cmap = self.my_resize((dx,dy))
-        self.image.paste(self.cmap,(min_y,min_x),self.cmap)
-        #print(self.image.size)
-
-        self.photoimage = ImageTk.PhotoImage(self.image)
-        #self.cmap = ImageTk.PhotoImage(self.cmap)
-        #self.photoimage = self.photoimage.paste(self.cmap)
+        self.photoimage = ImageTk.PhotoImage(image.rotate(self.model.angle))
         self.canvas.delete("image")
         self.canvas.create_image(-self.canvas.width,
                                  -self.canvas.height,
@@ -273,6 +291,48 @@ class ViewerTab:
             self.image = self.model.zoomOut()
             self.redraw()
 
+    def rotate(self):
+        if self.isSuperposed:
+            self.model.angle += 90
+            if self.model.angle == 360:
+                self.model.angle = 0
+            self.redrawSuperposed()
+
+        if self.isSlideOn and self.isSuperposed == False:
+            self.model.angle += 90
+            self.redraw()
+
+    def flip(self):
+        if self.isSuperposed:
+            if self.model.flip:
+                self.model.flip = False
+            else:
+                self.model.flip = True
+            self.redrawSuperposed()
+
+        if self.isSlideOn and self.isSuperposed == False:
+            if self.model.flip:
+                self.model.flip = False
+            else:
+                self.model.flip = True
+            self.redraw()
+
+    def get_position(self, event):
+        factory = (-1)*int(numpy.sin(numpy.radians(self.model.angle))) + int(numpy.cos(numpy.radians(self.model.angle)))
+        factorx = int(numpy.sin(numpy.radians(self.model.angle))) + int(numpy.cos(numpy.radians(self.model.angle)))*(-1)**(self.model.angle/90)
+        if self.model.flip:
+            event.x = self.canvas.width - event.x
+        if self.model.angle % 180 == 0:
+            abs_x = factorx*event.x + self.canvas.width*2**(self.model.angle/180) - self.model.cmapx
+            abs_y = factory*event.y + self.canvas.height*2**(self.model.angle/180) - self.model.cmapy
+        else:
+            abs_x = factory*event.y + (3*self.canvas.width+self.canvas.height*(factorx))/2 - self.model.cmapx
+            abs_y = factorx*event.x + (3*self.canvas.height+self.canvas.width*(factory))/2 - self.model.cmapy
+        factor_resize_x = self.cmap_resize.size[0]/self.model.cmap_png.size[0]
+        factor_resize_y = self.cmap_resize.size[1]/self.model.cmap_png.size[1]
+        index_x = int(abs_x/factor_resize_x)
+        index_y = int(abs_y/factor_resize_y)
+        messagebox.showinfo('Patch coordinates', 'X: % d \n Y: % d' % (index_x, index_y))
 
 class ViewerTabV2(ViewerTab):
 
@@ -282,6 +342,7 @@ class ViewerTabV2(ViewerTab):
 
         # variable for spinbox
         self.spinval = IntVar()
+        self.cmap_trans = IntVar()
 
         # add a slider
         self.thresholdPanel = ttk.LabelFrame(self.sideFrame, width=90,
@@ -293,6 +354,18 @@ class ViewerTabV2(ViewerTab):
 
         self.threshspinbox = Spinbox(master=self.thresholdPanel, from_=51, to=255, textvariable=self.spinval, command=self.update, width=10)
         self.threshspinbox.pack(side=LEFT)
+
+        # add a slider
+        self.CmapTransparency = ttk.LabelFrame(self.sideFrame, width=90,
+                                             text="Transparency Cmap")
+        self.CmapTransparency.pack(side=TOP)
+        self.scale_cmap = ttk.Scale(master=self.CmapTransparency, command=self.accept_whole_number_only_cmap, orient=VERTICAL, from_=0, to=255)
+        #if self.isSuperposed:
+            #self.scale_cmap.bind("<Button-1>", self.redrawSuperposed())
+        self.scale_cmap.pack(side=LEFT)
+
+        self.cmapspinbox = Spinbox(master=self.CmapTransparency, from_=0, to=255, textvariable=self.cmap_trans, command=self.update_cmap, width=10)
+        self.cmapspinbox.pack(side=LEFT)
 
     def accept_whole_number_only(self, e=None):
         value = self.scale.get()
@@ -310,3 +383,20 @@ class ViewerTabV2(ViewerTab):
         # can call any function that update annotations in the model
         self.image = self.model.updateImage()
         self.redraw()
+
+    def accept_whole_number_only_cmap(self, e=None):
+        value = self.scale_cmap.get()
+        if int(value) != value:
+            self.scale_cmap.set(round(value))
+        #self.cmap_trans.set(int(round(value)))
+        #self.model.tcmap = self.cmap_trans.get()
+        self.model.tcmap = int(self.scale_cmap.get())
+        self.cmap_trans.set(int(self.scale_cmap.get()))
+        if self.isSuperposed:
+            self.redrawSuperposed()
+
+    def update_cmap(self, e=None):
+        """Updates the scale and spinbox"""
+        self.scale_cmap.set(self.cmapspinbox.get())
+        #self.model.tcmap = self.cmap_trans.get()
+        self.model.tcmap = int(self.cmapspinbox.get())
