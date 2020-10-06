@@ -48,10 +48,6 @@ class ViewerTab:
         self.isFISH = False
         self.image = None
         self.cmap = None
-        self.cmap_x = 0
-        self.cmap_y = 0
-        self.initWidthCmap = 0
-        self.initHeightCmap = 0
         self.photoimage = None
         self.tool = "slide"
 
@@ -66,6 +62,15 @@ class ViewerTab:
         self.zoomPanel = ttk.LabelFrame(self.sideFrame, width=90,
                                         text="Control Panel")
         self.zoomPanel.pack(side=TOP)
+
+        # creation of a frame on the right of the canvas
+        # It will hold the labels for the colormap
+        self.rsideFrame = ttk.Frame(self.master, width=100)
+        self.rsideFrame.pack(side=RIGHT, fill=BOTH)
+
+        self.labelPanel = ttk.LabelFrame(self.rsideFrame, width=90,
+                                                text="Labels")
+        self.labelPanel.pack(side=TOP)
 
         # image container
         self.canvas = ResizableCanvas(self.master,
@@ -95,6 +100,30 @@ class ViewerTab:
         self.buttonrotate.pack()
         self.buttonflip.pack()
 
+        self.vars = []
+        self.values = []
+        self.buttons = []
+        self.label_dict = {}
+        self.select_var = IntVar()
+        self.select_var.set(1)
+        self.buttonselect = Checkbutton(self.labelPanel, text='Select All',
+                                        var=self.select_var, onvalue=1,
+                                        offvalue=0, command=self.selectall)
+        self.buttonselect.pack()
+
+        self.unselect_var = IntVar()
+        self.unselect_var.set(0)
+        self.buttonunselect = Checkbutton(self.labelPanel, text='Unselect All',
+                                        var=self.unselect_var, onvalue=1,
+                                        offvalue=0, command=self.unselectall)
+        self.buttonunselect.pack()
+
+
+        self.changelabels = ttk.Button(self.labelPanel, text="Change labels",
+                                     command=self.popup_labels)
+        self.changelabels.pack()
+
+
     def initView(self):
         # done
         """
@@ -114,20 +143,18 @@ class ViewerTab:
     def initViewSuperposed(self):
         # done
         """
-        A function that create the image in the canvas
-        and initialize several variables
+        A function that adds the color map image to the canvas
         """
         # if there is an image in the canvas, delete it
-        print("im in superposition mode")
         self.canvas.delete('all')
 
         # image creation
         self.image = self.model.initImage()
         self.cmap = self.model.initImagePng()
-        self.initWidthCmap = self.cmap.size[0]
-        self.initHeightCmap = self.cmap.size[0]
+        self.cmap = PIL.Image.fromarray((self.cmap * 255).astype(numpy.uint8))
         self.isSuperposed = True
         self.isSlideOn = True
+        self.set_labels()
         self.redrawSuperposed()
 
     def redraw(self):
@@ -328,8 +355,8 @@ class ViewerTab:
         else:
             abs_x = factory*event.y + (3*self.canvas.width+self.canvas.height*(factorx))/2 - self.model.cmapx
             abs_y = factorx*event.x + (3*self.canvas.height+self.canvas.width*(factory))/2 - self.model.cmapy
-        factor_resize_x = self.cmap_resize.size[0]/self.model.cmap_png.size[0]
-        factor_resize_y = self.cmap_resize.size[1]/self.model.cmap_png.size[1]
+        factor_resize_x = self.cmap_resize.size[0]/self.model.cmap_png.shape[0]
+        factor_resize_y = self.cmap_resize.size[1]/self.model.cmap_png.shape[1]
         index_x = int(abs_x/factor_resize_x)
         index_y = int(abs_y/factor_resize_y)
         messagebox.showinfo('Patch coordinates', 'X: % d \n Y: % d' % (index_x, index_y))
@@ -360,12 +387,11 @@ class ViewerTabV2(ViewerTab):
                                              text="Transparency Cmap")
         self.CmapTransparency.pack(side=TOP)
         self.scale_cmap = ttk.Scale(master=self.CmapTransparency, command=self.accept_whole_number_only_cmap, orient=VERTICAL, from_=0, to=255)
-        #if self.isSuperposed:
-            #self.scale_cmap.bind("<Button-1>", self.redrawSuperposed())
         self.scale_cmap.pack(side=LEFT)
 
         self.cmapspinbox = Spinbox(master=self.CmapTransparency, from_=0, to=255, textvariable=self.cmap_trans, command=self.update_cmap, width=10)
         self.cmapspinbox.pack(side=LEFT)
+
 
     def accept_whole_number_only(self, e=None):
         value = self.scale.get()
@@ -400,3 +426,78 @@ class ViewerTabV2(ViewerTab):
         self.scale_cmap.set(self.cmapspinbox.get())
         #self.model.tcmap = self.cmap_trans.get()
         self.model.tcmap = int(self.cmapspinbox.get())
+
+    def change_dict(self):
+        n = 0
+        temp_dict = {(int(c[0])): (float(c[1]), float(c[2]), float(c[3])) for c in self.model.original_color_dict}
+        for i in range(len(self.vars)):
+            value = self.vars[i].get()
+            if not value:
+                temp_dict[self.values[i]] = (0.3216,0.3294,0.6392)
+                self.select_var.set(0)
+                n += 1
+        self.model.color_dict = temp_dict
+        image = numpy.array([[self.model.color_dict[x] for x in row] for row in self.model.cmap_png.astype(int)])
+        self.cmap = numpy.transpose(image, (1, 0, 2))
+        self.cmap = PIL.Image.fromarray((self.cmap * 255).astype(numpy.uint8))
+        self.redrawSuperposed()
+        if n <= len(self.vars): self.unselect_var.set(0)
+        return
+
+    def popup_labels(self):
+        top = Toplevel()
+        top.title("Dictionary of labels")
+
+        Options = ['Select cluster']
+        Options.extend(self.values)
+        variable = StringVar()
+        variable.set(Options[0])
+        msg = Message(top, text='Select class to rename')
+        msg.pack()
+
+        w = OptionMenu(top, variable, *Options)
+        w.pack()
+
+        msg = Message(top, text='Introduce the name of the new class')
+        msg.pack()
+
+        text = Entry(top)
+        text.pack()
+
+        button = Button(top, text="Accept", command=lambda: [self.change_label(text.get(), variable.get()), top.destroy()])
+        button.pack()
+
+    def change_label(self, name, cluster):
+        self.buttons[int(cluster)].config(text='{}: {}'.format(cluster, name))
+        self.label_dict[cluster] = name
+        return
+
+    def set_labels(self):
+        for i in range(self.model.max_cluster + 1):
+            value = i
+            self.values.append(value)
+            var = StringVar(value=value)
+            self.vars.append(var)
+            colors = self.model.color_dict[i]
+            r = int(colors[0]*255)
+            g = int(colors[1]*255)
+            b = int(colors[2]*255)
+            cb = Checkbutton(self.labelPanel, var=var, text=value,
+                             onvalue=value, offvalue="",
+                             command=lambda: self.change_dict(),
+                             bg='#%02x%02x%02x' % (r,g,b))
+            cb.pack(side="top", fill="x", anchor="w")
+            self.buttons.append(cb)
+
+
+    def selectall(self):
+        for var in self.vars:
+            i = self.vars.index(var)
+            if not var.get():
+                var.set(self.values[i])
+        self.change_dict()
+
+    def unselectall(self):
+        for var in self.vars:
+            var.set("")
+        self.change_dict()

@@ -17,6 +17,8 @@ from numpy import savetxt, save
 from inspect import getmembers, isfunction
 from skimage.io import imread
 import pickle
+import os
+import csv
 
 
 def zoomFactors(slide):
@@ -177,7 +179,15 @@ class Model:
         return image
 
     def initImagePng(self):
-        cmap = self.cmap_png
+        with open('/Users/pilarortega/Desktop/pythologistTK/pythologistTK/dict/color_dict.csv', newline='') as file:
+            reader = csv.reader(file, delimiter=',')
+            self.original_color_dict = []
+            for row in reader:
+                self.original_color_dict.append(row)
+        self.color_dict = {(int(c[0])): (float(c[1]), float(c[2]), float(c[3])) for c in self.original_color_dict}
+        self.max_cluster = numpy.max(self.cmap_png.astype(int))
+        image = numpy.array([[self.color_dict[x] for x in row] for row in self.cmap_png.astype(int)])
+        cmap = numpy.transpose(image, (1, 0, 2))
         return cmap
 
     def translateImage(self, xref, yref, event):
@@ -375,7 +385,8 @@ class ModelV2(Model):
         self.image_x_abs = 0.
         self.image_y_abs = 0.
         self.flip = False
-
+        self.color_dict = {}
+        self.max_cluster = 0
 
 ################################################################################
         # View : sub-application (TabApplication)
@@ -413,16 +424,20 @@ class ModelV2(Model):
 
     def superpose_cmap(self):
         self.pngpath = askopenfilename(title="open cmap",
-                                             filetypes=[('png files', '.png'),('all files', '.*')])
+                                             filetypes=[('png files', '.png'),('numpy files', '.npy'), ('all files', '.*')])
         if self.pngpath:
             if messagebox.askyesno(message="Is this a FISH color map?"):
                 self.view.viewapp.isFISH = True
             else:
                 self.view.viewapp.isFISH = False
             # create the cmap object
+            if os.path.splitext(self.pngpath)[1] == '.npy':
+                self.cmap_png = numpy.load(self.pngpath)
+                self.view.viewapp.initViewSuperposed()
+                return 0
             self.cmap_png = Image.open(self.pngpath)
             self.cmap_png.putalpha(100)
-            size_x , size_y = self.cmap_png.size
+            size_x, size_y = self.cmap_png.size
             n = numpy.array(self.cmap_png)
             for i in range(n.shape[0]):
                 for j in range(n.shape[1]):
@@ -469,9 +484,9 @@ class ModelV2(Model):
         x = (event.x - xref)*int(factorx)
         y = (event.y - yref)*int(factory)
         # have to redefine image to store "du rab" for incoming translations
+        if self.flip:
+            x = -x
         if self.angle % 180 == 0:
-            if self.flip:
-                x = -x
             self.image_x_abs -= x * self.zoomfactors[self.level]
             self.image_y_abs -= y * self.zoomfactors[self.level]
             self.cmapy += y
@@ -482,8 +497,6 @@ class ModelV2(Model):
                                            size=(3 * canvaswidth,
                                                  3 * canvasheight))
         else:
-            if self.flip:
-                y = -y
             self.image_x_abs -= y * self.zoomfactors[self.level]
             self.image_y_abs -= x * self.zoomfactors[self.level]
             self.cmapy += x
